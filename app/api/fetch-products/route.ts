@@ -75,9 +75,22 @@ async function handleRequest(request: NextRequest) {
       throw new Error(`Supabase delete failed: ${deleteError.message}`);
     }
 
+    if (rows.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        date,
+        fetchedCount: products.length,
+        upsertedCount: 0,
+        pageCount
+      });
+    }
+
     const { data, error } = await supabase
       .from("products")
-      .insert(rows)
+      .upsert(rows, {
+        onConflict: "product_hunt_id",
+        ignoreDuplicates: true
+      })
       .select("id");
 
     if (error) {
@@ -157,4 +170,3 @@ function isValidDateString(value: unknown): value is string {
     !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
   );
 }
-
