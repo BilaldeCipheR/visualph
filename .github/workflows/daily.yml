@@ -1,0 +1,65 @@
+name: Daily VisualPH sync
+
+on:
+  schedule:
+    - cron: "5 0 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: visualph-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+      APP_URL: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS "$APP_URL" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          cat /tmp/visualph-start.log
+          exit 1
+
+      - name: Fetch Product Hunt launches
+        run: |
+          curl -fsS -X POST "$APP_URL/api/fetch-products" \
+            -H "Authorization: Bearer $SYNC_SECRET"
+
+      - name: Generate screenshots
+        run: npm run screenshot
