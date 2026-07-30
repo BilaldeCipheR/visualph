@@ -84,7 +84,7 @@ jobs:
           for offset in $(seq 0 $((BACKFILL_DAYS - 1))); do
             launch_date=$(date -u -d "$start_date - $offset days" +%F)
             echo "Importing Product Hunt launches for $launch_date"
-            curl -fsS -X POST "$APP_URL/api/fetch-products" \
+            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products" \
               -H "Authorization: Bearer $SYNC_SECRET" \
               -H "Content-Type: application/json" \
               --data "{\"date\":\"$launch_date\"}"

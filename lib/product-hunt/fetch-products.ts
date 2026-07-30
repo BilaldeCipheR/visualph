@@ -252,7 +252,7 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
     launch_date: date,
     launched_at: product.featuredAt ?? launchTimestamp,
     featured_at: product.featuredAt ?? launchTimestamp,
-    daily_rank: product.dailyRank ?? index + 1,
+    daily_rank: index + 1,
     votes_count: product.votesCount,
     comments_count: product.commentsCount,
     topic_slugs: product.topics.map((topic) => slugify(topic.name)),
@@ -346,4 +346,3 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
-
