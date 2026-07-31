@@ -78,7 +78,6 @@ export function VisualPHExplorer({
   }, [categoryFilter, launches]);
 
   const visibleVotes = filteredLaunches.reduce((sum, launch) => sum + launch.votes, 0);
-  const latestLaunch = filteredLaunches[0] ?? launches[0];
 
   function updateQuery(next: { category?: string; date?: string }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -196,9 +195,6 @@ export function VisualPHExplorer({
               <div>
                 Showing <span className="font-semibold text-ink">{filteredLaunches.length}</span>{" "}
                 launch{filteredLaunches.length === 1 ? "" : "es"}
-              </div>
-              <div className="truncate text-right">
-                Latest card: <span className="font-semibold text-ink">{latestLaunch?.name ?? "N/A"}</span>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
