@@ -12,6 +12,12 @@
 
 html {
   background: #f6f1e8;
+  height: 100%;
+}
+
+html,
+body {
+  overflow-y: auto;
 }
 
 body {
