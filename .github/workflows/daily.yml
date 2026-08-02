@@ -1,12 +1,35 @@
 name: Daily VisualPH sync
 
+# Backfill schedule
+# ------------------
+# The scheduled cron below only imports the current day, so historical
+# dates must be backfilled manually via "Run workflow" (workflow_dispatch).
+# `backfill_days` accepts at most 30, so backfilling a wide range requires
+# several runs, each covering an earlier `start_date`.
+#
+# As of 2026-07-31, Supabase only has data for 2026-07-18 through
+# 2026-07-30 (imported via a single manual run). To backfill back to
+# 2026-01-01, trigger the following runs (newest to oldest), letting each
+# one finish (~20+ min, since it also generates screenshots) before
+# starting the next:
+#
+#   start_date=2026-07-17  backfill_days=30  -> covers 2026-06-18..2026-07-17
+#   start_date=2026-06-17  backfill_days=30  -> covers 2026-05-19..2026-06-17
+#   start_date=2026-05-18  backfill_days=30  -> covers 2026-04-19..2026-05-18
+#   start_date=2026-04-18  backfill_days=30  -> covers 2026-03-20..2026-04-18
+#   start_date=2026-03-19  backfill_days=30  -> covers 2026-02-18..2026-03-19
+#   start_date=2026-02-17  backfill_days=30  -> covers 2026-01-19..2026-02-17
+#   start_date=2026-01-18  backfill_days=18  -> covers 2026-01-01..2026-01-18
+#
+# Update this comment once the backfill is complete, or if new gaps appear.
+
 on:
   schedule:
     - cron: "55 23 * * *"
   workflow_dispatch:
     inputs:
       backfill_days:
-        description: "Number of days to import, counting backward from today"
+        description: "Number of days to import, counting backward from today (max 30)"
         required: true
         default: "1"
       start_date:
