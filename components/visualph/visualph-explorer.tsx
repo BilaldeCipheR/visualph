@@ -77,8 +77,6 @@ export function VisualPHExplorer({
     );
   }, [categoryFilter, launches]);
 
-  const visibleVotes = filteredLaunches.reduce((sum, launch) => sum + launch.votes, 0);
-
   function updateQuery(next: { category?: string; date?: string }) {
     const params = new URLSearchParams(searchParams.toString());
 
@@ -134,9 +132,8 @@ export function VisualPHExplorer({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <Stat label="Launches" value={launches.length.toString()} />
-              <Stat label="Visible votes" value={visibleVotes.toLocaleString()} />
               <Stat label="Categories" value={availableCategories.length.toString()} />
               <Stat label="Date" value={selectedDate} />
             </div>
@@ -286,9 +283,8 @@ function LaunchCard({ launch }: { launch: Launch }) {
       </CardHeader>
 
       <CardContent className="space-y-4 p-4 pt-0">
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="text-sm">
           <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
-          <DataPill label="Launched" value={formatLaunchDate(launch.launchedAt)} />
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
