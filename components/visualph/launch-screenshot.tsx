@@ -17,10 +17,10 @@ export function LaunchScreenshot({
 }: LaunchScreenshotProps) {
   if (screenshotUrl) {
     return (
-      <div className="overflow-hidden rounded-md border border-black/10 bg-white">
+      <div className="max-h-72 overflow-y-auto rounded-md border border-black/10 bg-white overscroll-contain">
         <img
           alt={`${name} product screenshot`}
-          className="h-full w-full object-cover"
+          className="block h-auto w-full"
           src={screenshotUrl}
         />
       </div>
