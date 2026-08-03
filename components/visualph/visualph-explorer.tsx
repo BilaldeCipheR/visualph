@@ -10,8 +10,12 @@ import {
   Tag,
   TriangleAlert
 } from "lucide-react";
+import { format } from "date-fns";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 import { LaunchScreenshot } from "./launch-screenshot";
@@ -140,25 +144,38 @@ export function VisualPHExplorer({
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-            <label className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
               <span className="text-xs font-medium uppercase tracking-[0.16em] text-black/45">
                 Launch date
               </span>
-              <div className="flex items-center gap-2 rounded-md border border-black/10 bg-white/80 px-3 py-2 shadow-sm">
-                <CalendarDays className="h-4 w-4 text-black/55" />
-                <select
-                  className="w-full bg-transparent text-sm text-ink outline-none"
-                  value={selectedDate}
-                  onChange={(event) => handleDateChange(event.target.value)}
-                >
-                  {(availableDates.length > 0 ? availableDates : [selectedDate]).map((date) => (
-                    <option key={date} value={date}>
-                      {formatLaunchDate(date)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal rounded-md border-black/10 bg-white/80 shadow-sm hover:bg-white/90 text-ink",
+                      !selectedDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4 text-black/55" />
+                    {selectedDate ? formatLaunchDate(selectedDate) : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-white border-black/10" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={toDateValue(selectedDate) || undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        handleDateChange(format(date, "yyyy-MM-dd"));
+                      }
+                    }}
+                    disabled={(date) => date > new Date() || date < new Date("2026-01-01")}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
 
             <FilterSelect
               icon={<Tag className="h-4 w-4" />}
