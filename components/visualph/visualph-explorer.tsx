@@ -49,8 +49,22 @@ const dateFormatter = new Intl.DateTimeFormat("en", {
 });
 
 function toDateValue(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+
+  return date.getFullYear() === year &&
+    date.getMonth() === month &&
+    date.getDate() === day
+    ? date
+    : null;
 }
 
 export function VisualPHExplorer({
@@ -64,6 +78,19 @@ export function VisualPHExplorer({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
+  const selectedCalendarDate = React.useMemo(
+    () => toDateValue(selectedDate),
+    [selectedDate]
+  );
+  const [calendarMonth, setCalendarMonth] = React.useState(
+    () => selectedCalendarDate ?? new Date()
+  );
+
+  React.useEffect(() => {
+    if (selectedCalendarDate) {
+      setCalendarMonth(selectedCalendarDate);
+    }
+  }, [selectedCalendarDate]);
 
   const filteredLaunches = React.useMemo(() => {
     const matched = launches.filter((launch) => {
@@ -148,7 +175,13 @@ export function VisualPHExplorer({
               <span className="text-xs font-medium uppercase tracking-[0.16em] text-black/45">
                 Launch date
               </span>
-              <Popover>
+              <Popover
+                onOpenChange={(open) => {
+                  if (open && selectedCalendarDate) {
+                    setCalendarMonth(selectedCalendarDate);
+                  }
+                }}
+              >
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -164,13 +197,15 @@ export function VisualPHExplorer({
                 <PopoverContent className="w-auto p-0 bg-white border-black/10" align="start">
                   <Calendar
                     mode="single"
-                    selected={toDateValue(selectedDate) || undefined}
+                    selected={selectedCalendarDate || undefined}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
                     onSelect={(date) => {
                       if (date) {
                         handleDateChange(format(date, "yyyy-MM-dd"));
                       }
                     }}
-                    disabled={(date) => date > new Date() || date < new Date("2026-01-01")}
+                    disabled={(date) => date > new Date() || date < new Date(2026, 0, 1)}
                     initialFocus
                   />
                 </PopoverContent>
