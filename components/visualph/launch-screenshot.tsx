@@ -17,7 +17,7 @@ export function LaunchScreenshot({
 }: LaunchScreenshotProps) {
   if (screenshotUrl) {
     return (
-      <div className="max-h-72 overflow-y-auto rounded-md border border-black/10 bg-white overscroll-contain">
+      <div className="max-h-96 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable]">
         <img
           alt={`${name} product screenshot`}
           className="block h-auto w-full"
