@@ -32,6 +32,8 @@ export type Launch = {
   productHuntUrl: string;
   websiteUrl: string;
   screenshotUrl?: string | null;
+  screenshotWidth?: number | null;
+  screenshotHeight?: number | null;
 };
 
 type VisualPHExplorerProps = {
@@ -316,6 +318,8 @@ function LaunchCard({ launch }: { launch: Launch }) {
           tagline={launch.tagline}
           category={launch.category}
           screenshotUrl={launch.screenshotUrl}
+          screenshotWidth={launch.screenshotWidth}
+          screenshotHeight={launch.screenshotHeight}
         />
 
         <div className="space-y-2">

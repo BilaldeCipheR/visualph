@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 type LaunchScreenshotProps = {
@@ -7,21 +9,29 @@ type LaunchScreenshotProps = {
   tagline: string;
   category: string;
   screenshotUrl?: string | null;
+  screenshotWidth?: number | null;
+  screenshotHeight?: number | null;
 };
 
 export function LaunchScreenshot({
   name,
   tagline,
   category,
-  screenshotUrl
+  screenshotUrl,
+  screenshotWidth,
+  screenshotHeight
 }: LaunchScreenshotProps) {
   if (screenshotUrl) {
     return (
       <div className="max-h-96 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable]">
-        <img
+        <Image
           alt={`${name} product screenshot`}
           className="block h-auto w-full"
+          height={screenshotHeight ?? 900}
+          loading="lazy"
+          sizes="(min-width: 1280px) 400px, (min-width: 768px) 50vw, 100vw"
           src={screenshotUrl}
+          width={screenshotWidth ?? 1440}
         />
       </div>
     );

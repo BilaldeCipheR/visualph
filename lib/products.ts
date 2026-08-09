@@ -1,5 +1,21 @@
 ﻿import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ProductFilterState, ProductRecord } from "@/lib/types";
+import { unstable_cache } from "next/cache";
+
+const PRODUCT_LIST_COLUMNS = [
+  "id",
+  "name",
+  "tagline",
+  "website_url",
+  "product_hunt_url",
+  "votes_count",
+  "daily_rank",
+  "launch_date",
+  "screenshot_url",
+  "screenshot_width",
+  "screenshot_height",
+  "topic_names"
+].join(",");
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -12,8 +28,6 @@ function normalizeProducts(rows: Record<string, unknown>[] | null): ProductRecor
 
   return rows.map((row) => ({
     id: String(row.id),
-    slug: String(row.slug ?? ""),
-    productHuntId: String(row.product_hunt_id ?? ""),
     name: String(row.name ?? "Untitled product"),
     tagline: String(row.tagline ?? ""),
     websiteUrl: String(row.website_url ?? ""),
@@ -21,19 +35,14 @@ function normalizeProducts(rows: Record<string, unknown>[] | null): ProductRecor
     votesCount: Number(row.votes_count ?? 0),
     dailyRank: Number(row.daily_rank ?? 0),
     launchDate: String(row.launch_date ?? todayUtc()),
-    screenshotPath: row.screenshot_path ? String(row.screenshot_path) : null,
     screenshotUrl: row.screenshot_url ? String(row.screenshot_url) : null,
-    screenshotCapturedAt: row.screenshot_captured_at
-      ? String(row.screenshot_captured_at)
-      : null,
-    topicSlugs: Array.isArray(row.topic_slugs)
-      ? row.topic_slugs.map((topic) => String(topic))
-      : [],
+    screenshotWidth:
+      typeof row.screenshot_width === "number" ? row.screenshot_width : null,
+    screenshotHeight:
+      typeof row.screenshot_height === "number" ? row.screenshot_height : null,
     topicNames: Array.isArray(row.topic_names)
       ? row.topic_names.map((topic) => String(topic))
-      : [],
-    createdAt: row.created_at ? String(row.created_at) : undefined,
-    updatedAt: row.updated_at ? String(row.updated_at) : undefined
+      : []
   }));
 }
 
@@ -57,21 +66,31 @@ export async function getLatestLaunchDate(): Promise<string> {
   }
 }
 
+async function queryProductsByDate(date: string): Promise<ProductRecord[]> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_LIST_COLUMNS)
+    .eq("launch_date", date)
+    .order("votes_count", { ascending: false })
+    .order("daily_rank", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeProducts(data as Record<string, unknown>[] | null);
+}
+
+const getCachedProductsByDate = unstable_cache(
+  queryProductsByDate,
+  ["visualph-products-by-date-v1"],
+  { revalidate: 60 * 60 }
+);
+
 export async function getProducts({ date }: ProductFilterState): Promise<ProductRecord[]> {
   try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("launch_date", date)
-      .order("votes_count", { ascending: false })
-      .order("daily_rank", { ascending: true });
-
-    if (error) {
-      throw error;
-    }
-
-    return normalizeProducts(data as Record<string, unknown>[] | null);
+    return await getCachedProductsByDate(date);
   } catch {
     return [];
   }

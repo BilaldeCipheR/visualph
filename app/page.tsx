@@ -11,6 +11,8 @@ type PageProps = {
   }>;
 };
 
+export const preferredRegion = "sin1";
+
 function isValidDate(value: string | undefined) {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
@@ -45,7 +47,9 @@ export default async function Page({ searchParams }: PageProps) {
     launchedAt: product.launchDate,
     productHuntUrl: product.productHuntUrl,
     websiteUrl: product.websiteUrl,
-    screenshotUrl: product.screenshotUrl
+    screenshotUrl: product.screenshotUrl,
+    screenshotWidth: product.screenshotWidth,
+    screenshotHeight: product.screenshotHeight
   }));
 
   return (
