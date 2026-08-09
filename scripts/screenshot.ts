@@ -32,6 +32,8 @@ type CaptureResult = {
   captureStatus: "captured" | "fallback";
   failurePhase?: "navigation" | "screenshot" | "unknown";
   failureReason?: string;
+  height?: number;
+  width?: number;
 };
 
 type ProductRunResult = {
@@ -49,7 +51,7 @@ type ProductRunResult = {
 type BrowserPage = {
   close(): Promise<void>;
   goto(url: string, options: { timeout: number; waitUntil: "networkidle2" | "domcontentloaded" }): Promise<unknown>;
-  screenshot(options: { fullPage: false; type: "png"; timeout: number }): Promise<Uint8Array>;
+  screenshot(options: { fullPage: boolean; type: "png"; timeout: number }): Promise<Uint8Array>;
   setUserAgent(userAgent: string): Promise<void>;
   setViewport(viewport: { width: number; height: number }): Promise<void>;
   url(): string;
@@ -239,14 +241,18 @@ async function captureProduct(browser: BrowserInstance, url: string, timeoutMs: 
 
     try {
       const screenshot = await page.screenshot({
-        fullPage: false,
+        fullPage: true,
         type: "png",
         timeout: timeoutMs
       });
+      const buffer = Buffer.from(screenshot);
+      const { height, width } = readPngDimensions(buffer);
 
       return {
-        buffer: Buffer.from(screenshot),
-        captureStatus: "captured"
+        buffer,
+        captureStatus: "captured",
+        height,
+        width
       };
     } catch (error) {
       return buildFallbackCapture("screenshot", error, url);
@@ -310,8 +316,8 @@ async function updateScreenshotMetadata(input: {
           screenshot_bucket: options.bucket,
           screenshot_path: screenshotPath,
           screenshot_url: screenshotUrl,
-          screenshot_width: VIEWPORT.width,
-          screenshot_height: VIEWPORT.height,
+          screenshot_width: capture.width,
+          screenshot_height: capture.height,
           screenshot_bytes: capture.buffer.byteLength,
           screenshot_mime_type: "image/png",
           screenshot_captured_at: now,
@@ -342,6 +348,23 @@ async function updateScreenshotMetadata(input: {
   } else {
     console.log(`[screenshot] captured ${product.slug} -> ${screenshotPath}`);
   }
+}
+
+function readPngDimensions(buffer: Buffer) {
+  const pngSignature = "89504e470d0a1a0a";
+
+  if (
+    buffer.length < 24 ||
+    buffer.subarray(0, 8).toString("hex") !== pngSignature ||
+    buffer.subarray(12, 16).toString("ascii") !== "IHDR"
+  ) {
+    throw new Error("Captured screenshot is not a valid PNG.");
+  }
+
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20)
+  };
 }
 
 function buildScreenshotPath(product: ProductTarget, pathPrefix: string) {
