@@ -197,6 +197,8 @@ export function VisualPHExplorer({
                 <PopoverContent className="w-auto p-0 bg-white border-black/10" align="start">
                   <Calendar
                     mode="single"
+                    showOutsideDays={false}
+                    fromMonth={new Date(2026, 0, 1)}
                     selected={selectedCalendarDate || undefined}
                     month={calendarMonth}
                     onMonthChange={setCalendarMonth}
