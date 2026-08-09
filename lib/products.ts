@@ -2,20 +2,8 @@
 import type { ProductFilterState, ProductRecord } from "@/lib/types";
 import { unstable_cache } from "next/cache";
 
-const PRODUCT_LIST_COLUMNS = [
-  "id",
-  "name",
-  "tagline",
-  "website_url",
-  "product_hunt_url",
-  "votes_count",
-  "daily_rank",
-  "launch_date",
-  "screenshot_url",
-  "screenshot_width",
-  "screenshot_height",
-  "topic_names"
-].join(",");
+const PRODUCT_LIST_COLUMNS =
+  "id,name,tagline,website_url,product_hunt_url,votes_count,daily_rank,launch_date,screenshot_url,screenshot_width,screenshot_height,topic_names" as const;
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
