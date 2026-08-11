@@ -66,15 +66,6 @@ async function handleRequest(request: NextRequest) {
     const rows = buildProductRows(products, date);
     const supabase = createSupabaseAdminClient();
 
-    const { error: deleteError } = await supabase
-      .from("products")
-      .delete()
-      .eq("launch_date", date);
-
-    if (deleteError) {
-      throw new Error(`Supabase delete failed: ${deleteError.message}`);
-    }
-
     if (rows.length === 0) {
       return NextResponse.json({
         ok: true,
@@ -83,6 +74,15 @@ async function handleRequest(request: NextRequest) {
         upsertedCount: 0,
         pageCount
       });
+    }
+
+    const { error: deleteError } = await supabase
+      .from("products")
+      .delete()
+      .eq("launch_date", date);
+
+    if (deleteError) {
+      throw new Error(`Supabase delete failed: ${deleteError.message}`);
     }
 
     const { data, error } = await supabase

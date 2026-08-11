@@ -84,6 +84,10 @@ export function VisualPHExplorer({
     () => toDateValue(selectedDate),
     [selectedDate]
   );
+  const availableDateSet = React.useMemo(
+    () => new Set(availableDates),
+    [availableDates]
+  );
   const [calendarMonth, setCalendarMonth] = React.useState(
     () => selectedCalendarDate ?? new Date()
   );
@@ -209,7 +213,10 @@ export function VisualPHExplorer({
                         handleDateChange(format(date, "yyyy-MM-dd"));
                       }
                     }}
-                    disabled={(date) => date > new Date() || date < new Date(2026, 0, 1)}
+                    disabled={(date) => {
+                      const value = format(date, "yyyy-MM-dd");
+                      return date > new Date() || !availableDateSet.has(value);
+                    }}
                     initialFocus
                   />
                 </PopoverContent>

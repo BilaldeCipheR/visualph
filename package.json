@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "screenshot": "tsx scripts/screenshot.ts"
+    "screenshot": "tsx scripts/screenshot.ts",
+    "screenshots:cleanup": "tsx scripts/cleanup-orphan-screenshots.ts",
+    "test": "node --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.23",
