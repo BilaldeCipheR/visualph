@@ -5,6 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { requireEnv } from "../lib/env";
+import {
+  DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
+  screenshotCandidateFilter
+} from "../lib/screenshot-policy";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -15,6 +19,7 @@ type CliOptions = {
   json: boolean;
   limit: number;
   pathPrefix: string;
+  refreshAfterDays: number;
   slug?: string;
   table: string;
   timeoutMs: number;
@@ -194,7 +199,7 @@ async function resolveTargets(supabase: SupabaseClient, options: CliOptions) {
   let query = supabase
     .from(options.table)
     .select("*")
-    .or("screenshot_path.is.null,screenshot_url.is.null,screenshot_bytes.lt.20000")
+    .or(screenshotCandidateFilter(options.refreshAfterDays))
     .order("launch_date", { ascending: false })
     .order("votes_count", { ascending: false });
 
@@ -453,6 +458,10 @@ function parseArgs(argv: string[]): CliOptions {
     json: true,
     limit: Number.parseInt(process.env.SCREENSHOT_BATCH_LIMIT ?? `${DEFAULT_LIMIT}`, 10),
     pathPrefix: process.env.SCREENSHOT_PATH_PREFIX ?? DEFAULT_PATH_PREFIX,
+    refreshAfterDays: Number.parseInt(
+      process.env.SCREENSHOT_REFRESH_AFTER_DAYS ?? `${DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS}`,
+      10
+    ),
     table: process.env.SUPABASE_PRODUCTS_TABLE ?? DEFAULT_TABLE,
     timeoutMs: Number.parseInt(process.env.SCREENSHOT_TIMEOUT_MS ?? `${DEFAULT_TIMEOUT_MS}`, 10)
   };
@@ -481,6 +490,12 @@ function parseArgs(argv: string[]): CliOptions {
         break;
       case "--path-prefix":
         options.pathPrefix = readRequiredValue(argv, ++index, current);
+        break;
+      case "--refresh-after-days":
+        options.refreshAfterDays = parsePositiveInteger(
+          readRequiredValue(argv, ++index, current),
+          current
+        );
         break;
       case "--all":
         options.all = true;
@@ -538,6 +553,7 @@ Options:
   --bucket <name>       Supabase Storage bucket name. Default: ${DEFAULT_BUCKET}
   --table <name>        Supabase table name. Default: ${DEFAULT_TABLE}
   --path-prefix <path>  Storage path prefix. Default: ${DEFAULT_PATH_PREFIX}
+  --refresh-after-days <n> Recapture screenshots older than n days. Default: ${DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS}
   --json                Print JSON summary output. Default.
   --no-json             Print plain logs only.
   --help                Show this message.
@@ -547,6 +563,7 @@ Environment:
   SUPABASE_SERVICE_ROLE_KEY
   SCREENSHOT_BUCKET
   SCREENSHOT_PATH_PREFIX
+  SCREENSHOT_REFRESH_AFTER_DAYS
   SCREENSHOT_BATCH_LIMIT
   SCREENSHOT_TIMEOUT_MS
   SUPABASE_PRODUCTS_TABLE`);
