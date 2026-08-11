@@ -325,8 +325,7 @@ async function updateScreenshotMetadata(input: {
           screenshot_height: capture.height,
           screenshot_bytes: capture.buffer.byteLength,
           screenshot_mime_type: "image/png",
-          screenshot_captured_at: now,
-          updated_at: now
+          screenshot_captured_at: now
         }
       : {
           screenshot_path: null,
@@ -335,8 +334,7 @@ async function updateScreenshotMetadata(input: {
           screenshot_height: null,
           screenshot_bytes: null,
           screenshot_mime_type: null,
-          screenshot_captured_at: null,
-          updated_at: now
+          screenshot_captured_at: null
         };
 
   const { error } = await supabase

@@ -49,7 +49,8 @@ function isAuthorized(request: NextRequest) {
 }
 
 async function handleRequest(request: NextRequest) {
-  const date = await resolveRequestedDate(request);
+  const requestParams = await resolveRequestedParams(request);
+  const { allowEmpty, date } = requestParams;
 
   if (!date) {
     return NextResponse.json(
@@ -66,42 +67,21 @@ async function handleRequest(request: NextRequest) {
     const rows = buildProductRows(products, date);
     const supabase = createSupabaseAdminClient();
 
-    if (rows.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        date,
-        fetchedCount: products.length,
-        upsertedCount: 0,
-        pageCount
-      });
-    }
-
-    const { error: deleteError } = await supabase
-      .from("products")
-      .delete()
-      .eq("launch_date", date);
-
-    if (deleteError) {
-      throw new Error(`Supabase delete failed: ${deleteError.message}`);
-    }
-
-    const { data, error } = await supabase
-      .from("products")
-      .upsert(rows, {
-        onConflict: "product_hunt_id",
-        ignoreDuplicates: true
-      })
-      .select("id");
+    const { data, error } = await supabase.rpc("replace_daily_products", {
+      p_allow_empty: allowEmpty,
+      p_launch_date: date,
+      p_products: rows
+    });
 
     if (error) {
-      throw new Error(`Supabase insert failed: ${error.message}`);
+      throw new Error(`Supabase replace failed: ${error.message}`);
     }
 
     return NextResponse.json({
       ok: true,
       date,
       fetchedCount: products.length,
-      upsertedCount: data?.length ?? rows.length,
+      upsertedCount: typeof data === "number" ? data : rows.length,
       pageCount
     });
   } catch (error) {
@@ -139,28 +119,66 @@ async function handleRequest(request: NextRequest) {
   }
 }
 
-async function resolveRequestedDate(request: NextRequest) {
+async function resolveRequestedParams(request: NextRequest) {
   const urlDate = request.nextUrl.searchParams.get("date");
-  if (isValidDateString(urlDate)) {
-    return urlDate;
-  }
+  const urlAllowEmpty = parseBooleanFlag(request.nextUrl.searchParams.get("allowEmpty"));
+
+  let bodyDate: string | null = null;
+  let bodyAllowEmpty = false;
 
   if (request.method === "POST") {
     const contentType = request.headers.get("content-type") ?? "";
 
     if (contentType.includes("application/json")) {
       const body = (await request.json().catch(() => null)) as
-        | { date?: unknown }
+        | { allowEmpty?: unknown; date?: unknown }
         | null;
 
       if (isValidDateString(body?.date)) {
-        return body.date;
+        bodyDate = body.date;
       }
+
+      bodyAllowEmpty = parseBooleanFlag(body?.allowEmpty) ?? false;
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  return urlDate === null ? today : null;
+  const resolvedDate = isValidDateString(urlDate)
+    ? urlDate
+    : isValidDateString(bodyDate)
+      ? bodyDate
+      : urlDate === null && bodyDate === null
+        ? new Date().toISOString().slice(0, 10)
+        : null;
+
+  return {
+    allowEmpty: urlAllowEmpty ?? bodyAllowEmpty,
+    date: resolvedDate
+  };
+}
+
+function parseBooleanFlag(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === 1 || value === 0) {
+    return Boolean(value);
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") {
+    return true;
+  }
+
+  if (normalized === "false" || normalized === "0") {
+    return false;
+  }
+
+  return null;
 }
 
 function isValidDateString(value: unknown): value is string {
