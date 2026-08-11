@@ -1,0 +1,20 @@
+export const DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS = 30;
+
+export function screenshotRefreshCutoff(days: number, now = new Date()) {
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error("Screenshot refresh age must be a positive integer.");
+  }
+
+  return new Date(now.getTime() - days * 86_400_000).toISOString();
+}
+
+export function screenshotCandidateFilter(refreshAfterDays: number, now = new Date()) {
+  const cutoff = screenshotRefreshCutoff(refreshAfterDays, now);
+  return [
+    "screenshot_path.is.null",
+    "screenshot_url.is.null",
+    "screenshot_bytes.lt.20000",
+    "screenshot_captured_at.is.null",
+    `screenshot_captured_at.lt.${cutoff}`
+  ].join(",");
+}
