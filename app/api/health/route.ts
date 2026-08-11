@@ -6,6 +6,7 @@ import {
   differenceInUtcDays,
   isSyncFresh
 } from "@/lib/health";
+import { DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS } from "@/lib/screenshot-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -14,56 +15,26 @@ export async function GET() {
 
   try {
     const supabase = createSupabaseAdminClient();
-    const { count, error } = await supabase
-      .from("products")
-      .select("id", { count: "exact", head: true });
+    const { data, error } = await supabase
+      .rpc("products_health_summary", {
+        p_refresh_after_days: DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS
+      })
+      .single();
 
     if (error) {
       throw error;
     }
 
-    const { data: latest, error: latestError } = await supabase
-      .from("products")
-      .select("launch_date")
-      .order("launch_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestError) {
-      throw latestError;
-    }
-
-    const latestLaunchDate = latest?.launch_date ? String(latest.launch_date) : null;
+    const latestLaunchDate = data?.latest_launch_date ? String(data.latest_launch_date) : null;
     const lagDays = latestLaunchDate ? differenceInUtcDays(latestLaunchDate, checkedAt) : null;
     const syncFresh = isSyncFresh(latestLaunchDate, checkedAt, DEFAULT_MAX_SYNC_LAG_DAYS);
-
-    const { count: missingScreenshotCount, error: screenshotCountError } = await supabase
-      .from("products")
-      .select("id", { count: "exact", head: true })
-      .is("screenshot_url", null);
-
-    if (screenshotCountError) {
-      throw screenshotCountError;
-    }
-
-    const { data: latestScreenshot, error: latestScreenshotError } = await supabase
-      .from("products")
-      .select("screenshot_captured_at")
-      .not("screenshot_captured_at", "is", null)
-      .order("screenshot_captured_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestScreenshotError) {
-      throw latestScreenshotError;
-    }
 
     return NextResponse.json(
       {
         ok: syncFresh,
         checkedAt,
         database: "reachable",
-        productCount: count ?? 0,
+        productCount: data?.total_products ?? 0,
         latestLaunchDate,
         sync: {
           status: syncFresh ? "healthy" : "stale",
@@ -71,8 +42,10 @@ export async function GET() {
           maxLagDays: DEFAULT_MAX_SYNC_LAG_DAYS
         },
         screenshots: {
-          missing: missingScreenshotCount ?? 0,
-          latestCapturedAt: latestScreenshot?.screenshot_captured_at ?? null
+          missing: data?.missing_screenshots ?? 0,
+          stale: data?.stale_screenshots ?? 0,
+          undersized: data?.undersized_screenshots ?? 0,
+          latestCapturedAt: data?.last_screenshot_captured_at ?? null
         }
       },
       {
