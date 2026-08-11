@@ -10,6 +10,15 @@ import { DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS } from "@/lib/screenshot-policy";
 
 export const dynamic = "force-dynamic";
 
+type ProductsHealthSummary = {
+  last_screenshot_captured_at: string | null;
+  latest_launch_date: string | null;
+  missing_screenshots: number;
+  stale_screenshots: number;
+  total_products: number;
+  undersized_screenshots: number;
+};
+
 export async function GET() {
   const checkedAt = new Date().toISOString();
 
@@ -25,7 +34,8 @@ export async function GET() {
       throw error;
     }
 
-    const latestLaunchDate = data?.latest_launch_date ? String(data.latest_launch_date) : null;
+    const summary = toProductsHealthSummary(data);
+    const latestLaunchDate = summary?.latest_launch_date ? String(summary.latest_launch_date) : null;
     const lagDays = latestLaunchDate ? differenceInUtcDays(latestLaunchDate, checkedAt) : null;
     const syncFresh = isSyncFresh(latestLaunchDate, checkedAt, DEFAULT_MAX_SYNC_LAG_DAYS);
 
@@ -34,7 +44,7 @@ export async function GET() {
         ok: syncFresh,
         checkedAt,
         database: "reachable",
-        productCount: data?.total_products ?? 0,
+        productCount: summary?.total_products ?? 0,
         latestLaunchDate,
         sync: {
           status: syncFresh ? "healthy" : "stale",
@@ -42,10 +52,10 @@ export async function GET() {
           maxLagDays: DEFAULT_MAX_SYNC_LAG_DAYS
         },
         screenshots: {
-          missing: data?.missing_screenshots ?? 0,
-          stale: data?.stale_screenshots ?? 0,
-          undersized: data?.undersized_screenshots ?? 0,
-          latestCapturedAt: data?.last_screenshot_captured_at ?? null
+          missing: summary?.missing_screenshots ?? 0,
+          stale: summary?.stale_screenshots ?? 0,
+          undersized: summary?.undersized_screenshots ?? 0,
+          latestCapturedAt: summary?.last_screenshot_captured_at ?? null
         }
       },
       {
@@ -70,4 +80,12 @@ export async function GET() {
       }
     );
   }
+}
+
+function toProductsHealthSummary(value: unknown): ProductsHealthSummary | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  return value as ProductsHealthSummary;
 }
