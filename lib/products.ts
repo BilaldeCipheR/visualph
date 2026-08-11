@@ -84,38 +84,22 @@ export async function getProducts({ date }: ProductFilterState): Promise<Product
   }
 }
 
+const EXPLORER_RANGE_START = "2026-01-01";
+
 export async function getAvailableLaunchDates(): Promise<string[]> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const dates = new Set<string>();
-    const pageSize = 1_000;
+  const today = todayUtc();
+  const start = EXPLORER_RANGE_START <= today ? EXPLORER_RANGE_START : today;
 
-    for (let start = 0; ; start += pageSize) {
-      const { data, error } = await supabase
-        .from("products")
-        .select("launch_date")
-        .order("launch_date", { ascending: false })
-        .range(start, start + pageSize - 1);
+  const dates: string[] = [];
+  const cursor = new Date(`${today}T00:00:00Z`);
+  const startDate = new Date(`${start}T00:00:00Z`);
 
-      if (error) {
-        throw error;
-      }
-
-      for (const row of data ?? []) {
-        if (row.launch_date) {
-          dates.add(String(row.launch_date));
-        }
-      }
-
-      if (!data || data.length < pageSize) {
-        break;
-      }
-    }
-
-    return [...dates].sort((left, right) => right.localeCompare(left));
-  } catch {
-    return [];
+  while (cursor >= startDate) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
+
+  return dates;
 }
 
 export async function getAvailableCategories(date: string): Promise<string[]> {
