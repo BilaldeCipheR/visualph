@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { requireEnv } from "../lib/env";
 
@@ -48,7 +48,7 @@ async function main() {
 }
 
 async function listAll(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   path: string
 ) {
   const results: Array<{ name: string }> = [];
