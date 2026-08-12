@@ -1,7 +1,6 @@
 ﻿import { VisualPHExplorer, type Launch } from "@/components/visualph/visualph-explorer";
 import {
   getAvailableLaunchDates,
-  getLatestLaunchDate,
   getProducts
 } from "@/lib/products";
 
@@ -18,15 +17,18 @@ function isValidDate(value: string | undefined) {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
 
+function yesterdayUtc() {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0, 10);
+}
+
 export default async function Page({ searchParams }: PageProps) {
   const params = await searchParams;
-  const [availableDates, latestLaunchDate] = await Promise.all([
-    getAvailableLaunchDates(),
-    getLatestLaunchDate()
-  ]);
+  const availableDates = await getAvailableLaunchDates();
   const selectedDate = isValidDate(params?.date)
     ? (params?.date as string)
-    : latestLaunchDate;
+    : yesterdayUtc();
   const selectedCategory =
     typeof params?.category === "string" && params.category.trim()
       ? params.category
