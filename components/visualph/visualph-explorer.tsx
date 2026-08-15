@@ -38,7 +38,6 @@ export type Launch = {
 
 type VisualPHExplorerProps = {
   availableCategories: string[];
-  availableDates: string[];
   launches?: Launch[];
   selectedCategory: string;
   selectedDate: string;
@@ -71,7 +70,6 @@ function toDateValue(value: string) {
 
 export function VisualPHExplorer({
   availableCategories,
-  availableDates,
   launches = [],
   selectedCategory,
   selectedDate
@@ -80,13 +78,10 @@ export function VisualPHExplorer({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const selectedCalendarDate = React.useMemo(
     () => toDateValue(selectedDate),
     [selectedDate]
-  );
-  const availableDateSet = React.useMemo(
-    () => new Set(availableDates),
-    [availableDates]
   );
   const [calendarMonth, setCalendarMonth] = React.useState(
     () => selectedCalendarDate ?? new Date()
@@ -130,7 +125,7 @@ export function VisualPHExplorer({
     params.delete("sort");
 
     const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname);
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   function handleDateChange(value: string) {
@@ -182,7 +177,9 @@ export function VisualPHExplorer({
                 Launch date
               </span>
               <Popover
+                open={calendarOpen}
                 onOpenChange={(open) => {
+                  setCalendarOpen(open);
                   if (open && selectedCalendarDate) {
                     setCalendarMonth(selectedCalendarDate);
                   }
@@ -210,13 +207,11 @@ export function VisualPHExplorer({
                     onMonthChange={setCalendarMonth}
                     onSelect={(date) => {
                       if (date) {
+                        setCalendarOpen(false);
                         handleDateChange(format(date, "yyyy-MM-dd"));
                       }
                     }}
-                    disabled={(date) => {
-                      const value = format(date, "yyyy-MM-dd");
-                      return date > new Date() || !availableDateSet.has(value);
-                    }}
+                    disabled={(date) => date > new Date()}
                     initialFocus
                   />
                 </PopoverContent>
