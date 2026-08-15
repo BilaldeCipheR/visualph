@@ -1,8 +1,5 @@
 ﻿import { VisualPHExplorer, type Launch } from "@/components/visualph/visualph-explorer";
-import {
-  getAvailableLaunchDates,
-  getProducts
-} from "@/lib/products";
+import { getProducts } from "@/lib/products";
 
 type PageProps = {
   searchParams?: Promise<{
@@ -23,7 +20,6 @@ function todayUtc() {
 
 export default async function Page({ searchParams }: PageProps) {
   const params = await searchParams;
-  const availableDates = await getAvailableLaunchDates();
   const selectedDate = isValidDate(params?.date)
     ? (params?.date as string)
     : todayUtc();
@@ -56,9 +52,7 @@ export default async function Page({ searchParams }: PageProps) {
 
   return (
     <VisualPHExplorer
-      key={`${selectedDate}:${selectedCategory}`}
       availableCategories={categories}
-      availableDates={availableDates}
       launches={launches}
       selectedCategory={selectedCategory}
       selectedDate={selectedDate}
