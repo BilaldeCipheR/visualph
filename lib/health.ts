@@ -19,3 +19,7 @@ export function isSyncFresh(latestLaunchDate: string | null, checkedAt: string, 
   const lagDays = differenceInUtcDays(latestLaunchDate, checkedAt);
   return lagDays !== null && lagDays <= maxLagDays;
 }
+
+export function isScreenshotCoverageHealthy(productCount: number, missingScreenshotCount: number) {
+  return productCount > 0 && missingScreenshotCount === 0;
+}
