@@ -21,6 +21,10 @@ const POSTS_DAILY_QUERY = `
           dailyRank
           featuredAt
           id
+          media {
+            type
+            url(width: 1440)
+          }
           name
           slug
           tagline
@@ -57,6 +61,10 @@ type ProductHuntPostNode = {
   dailyRank: number | null;
   featuredAt: string | null;
   id: string;
+  media?: Array<{
+    type: string | null;
+    url: string | null;
+  }> | null;
   name: string | null;
   slug: string | null;
   tagline: string | null;
@@ -97,6 +105,7 @@ export type ProductHuntProduct = {
   dailyRank: number | null;
   featuredAt: string | null;
   id: string;
+  media: Array<{ type: string; url: string }>;
   name: string;
   slug: string;
   tagline: string;
@@ -207,6 +216,16 @@ export async function fetchAllDailyProducts(
         dailyRank: edge.node.dailyRank ?? null,
         featuredAt: edge.node.featuredAt ?? null,
         id: edge.node.id,
+        media:
+          edge.node.media
+            ?.filter(
+              (media): media is { type: string; url: string } =>
+                Boolean(media?.type?.trim() && media?.url?.trim())
+            )
+            .map((media) => ({
+              type: media.type.trim(),
+              url: media.url.trim()
+            })) ?? [],
         name: edge.node.name?.trim() || "Untitled product",
         slug: edge.node.slug?.trim() || deriveSlug(edge.node.url, edge.node.name ?? "", edge.node.id),
         tagline: edge.node.tagline?.trim() || "",
@@ -259,6 +278,7 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
     topic_names: product.topics.map((topic) => topic.name),
     source_payload: {
       id: product.id,
+      media: product.media,
       name: product.name,
       slug: product.slug,
       tagline: product.tagline,
