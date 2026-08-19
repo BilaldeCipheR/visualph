@@ -29,12 +29,7 @@ async function main() {
     if (!data || data.length < PAGE_SIZE) break;
   }
 
-  const folders = await listAll(supabase, ROOT);
-  const storedPaths: string[] = [];
-  for (const folder of folders.filter((item) => !item.name.includes("."))) {
-    const files = await listAll(supabase, `${ROOT}/${folder.name}`);
-    for (const file of files) storedPaths.push(`${ROOT}/${folder.name}/${file.name}`);
-  }
+  const storedPaths = await listStoredPaths(supabase, ROOT);
 
   const orphans = storedPaths.filter((path) => !referencedPaths.has(path)).sort();
   console.log(JSON.stringify({ apply, bucket: BUCKET, orphanCount: orphans.length, orphans }, null, 2));
@@ -51,7 +46,7 @@ async function listAll(
   supabase: SupabaseClient,
   path: string
 ) {
-  const results: Array<{ name: string }> = [];
+  const results: Array<{ id: string | null; name: string }> = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await supabase.storage.from(BUCKET).list(path, {
       limit: PAGE_SIZE,
@@ -63,6 +58,22 @@ async function listAll(
     if (!data || data.length < PAGE_SIZE) break;
   }
   return results;
+}
+
+async function listStoredPaths(supabase: SupabaseClient, path: string): Promise<string[]> {
+  const paths: string[] = [];
+
+  for (const item of await listAll(supabase, path)) {
+    const itemPath = `${path}/${item.name}`;
+
+    if (item.id === null) {
+      paths.push(...(await listStoredPaths(supabase, itemPath)));
+    } else {
+      paths.push(itemPath);
+    }
+  }
+
+  return paths;
 }
 
 void main().catch((error) => {
