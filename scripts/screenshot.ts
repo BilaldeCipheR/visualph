@@ -13,6 +13,7 @@ import {
   DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
   screenshotCandidateFilter
 } from "../lib/screenshot-policy";
+import { buildScreenshotStoragePath } from "../lib/screenshot-path";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -32,6 +33,7 @@ type CliOptions = {
 type ProductTarget = {
   fallbackImageUrl: string | null;
   id: string;
+  launchDate: string;
   name: string;
   slug: string;
   url: string;
@@ -171,7 +173,13 @@ async function processProduct(input: {
       : websiteCapture;
   const screenshotPath =
     capture.captureStatus === "captured"
-      ? buildScreenshotPath(product, options.pathPrefix, capture.contentType)
+      ? buildScreenshotStoragePath({
+          contentType: capture.contentType,
+          launchDate: product.launchDate,
+          pathPrefix: options.pathPrefix,
+          productId: product.id,
+          slug: product.slug
+        })
       : null;
   const screenshotUrl =
     capture.captureStatus === "captured" && screenshotPath
@@ -446,42 +454,21 @@ function readPngDimensions(buffer: Buffer) {
   };
 }
 
-function buildScreenshotPath(
-  product: ProductTarget,
-  pathPrefix: string,
-  contentType = "image/png"
-) {
-  const safeSlug = sanitizePathPart(product.slug || product.id);
-  return `${pathPrefix}/${safeSlug}/latest.${extensionForContentType(contentType)}`;
-}
-
 function toProductTarget(row: JsonRecord): ProductTarget {
   const id = readString(row, ["id"]);
+  const launchDate = readString(row, ["launch_date"]);
   const slug = readString(row, ["slug"], id);
   const name = readString(row, ["name"], slug);
   const url = readString(row, ["website_url", "url", "product_url"]);
   const fallbackImageUrl = selectProductMediaUrl(row.source_payload);
 
-  if (!id || !url) {
-    throw new Error(`Product row is missing required fields: ${JSON.stringify({ id, slug, url })}`);
+  if (!id || !launchDate || !url) {
+    throw new Error(
+      `Product row is missing required fields: ${JSON.stringify({ id, launchDate, slug, url })}`
+    );
   }
 
-  return { fallbackImageUrl, id, name, slug, url };
-}
-
-function extensionForContentType(contentType: string) {
-  switch (contentType) {
-    case "image/avif":
-      return "avif";
-    case "image/gif":
-      return "gif";
-    case "image/jpeg":
-      return "jpg";
-    case "image/webp":
-      return "webp";
-    default:
-      return "png";
-  }
+  return { fallbackImageUrl, id, launchDate, name, slug, url };
 }
 
 function readString(row: JsonRecord, keys: string[], fallback = "") {
@@ -498,14 +485,6 @@ function readString(row: JsonRecord, keys: string[], fallback = "") {
   }
 
   return fallback;
-}
-
-function sanitizePathPart(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "product";
 }
 
 function isProductHuntUrl(rawUrl: string) {
