@@ -6,13 +6,24 @@ import { buildScreenshotStoragePath } from "../lib/screenshot-path.ts";
 test("screenshot storage paths include the product launch date", () => {
   assert.equal(
     buildScreenshotStoragePath({
-      contentType: "image/webp",
       launchDate: "2026-08-16",
       pathPrefix: "products",
       productId: "123",
       slug: "Example Product"
     }),
     "products/2026-08-16/example-product/latest.webp"
+  );
+});
+
+test("storage paths are WebP regardless of the capture source", () => {
+  assert.match(
+    buildScreenshotStoragePath({
+      launchDate: "2026-08-18",
+      pathPrefix: "products",
+      productId: "456",
+      slug: "animated-fallback"
+    }),
+    /\/latest\.webp$/
   );
 });
 

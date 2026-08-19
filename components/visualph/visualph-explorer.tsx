@@ -41,6 +41,7 @@ type VisualPHExplorerProps = {
   launches?: Launch[];
   selectedCategory: string;
   selectedDate: string;
+  selectedSort: "votes" | "rank" | "name";
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -72,12 +73,14 @@ export function VisualPHExplorer({
   availableCategories,
   launches = [],
   selectedCategory,
-  selectedDate
+  selectedDate,
+  selectedSort
 }: VisualPHExplorerProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
+  const [sortOrder, setSortOrder] = React.useState(selectedSort);
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const selectedCalendarDate = React.useMemo(
     () => toDateValue(selectedDate),
@@ -104,12 +107,14 @@ export function VisualPHExplorer({
         .some((value) => value.toLowerCase() === categoryFilter.toLowerCase());
     });
 
-    return [...matched].sort(
-      (left, right) => right.votes - left.votes || left.rank - right.rank
-    );
-  }, [categoryFilter, launches]);
+    return [...matched].sort((left, right) => {
+      if (sortOrder === "rank") return left.rank - right.rank;
+      if (sortOrder === "name") return left.name.localeCompare(right.name);
+      return right.votes - left.votes || left.rank - right.rank;
+    });
+  }, [categoryFilter, launches, sortOrder]);
 
-  function updateQuery(next: { category?: string; date?: string }) {
+  function updateQuery(next: { category?: string; date?: string; sort?: string }) {
     const params = new URLSearchParams(searchParams.toString());
 
     if (next.date) {
@@ -122,7 +127,11 @@ export function VisualPHExplorer({
       params.delete("category");
     }
 
-    params.delete("sort");
+    if (next.sort && next.sort !== "votes") {
+      params.set("sort", next.sort);
+    } else {
+      params.delete("sort");
+    }
 
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -131,7 +140,8 @@ export function VisualPHExplorer({
   function handleDateChange(value: string) {
     updateQuery({
       category: categoryFilter,
-      date: value
+      date: value,
+      sort: sortOrder
     });
   }
 
@@ -139,8 +149,15 @@ export function VisualPHExplorer({
     setCategoryFilter(value);
     updateQuery({
       category: value,
-      date: selectedDate
+      date: selectedDate,
+      sort: sortOrder
     });
+  }
+
+  function handleSortChange(value: string) {
+    const nextSort = value as "votes" | "rank" | "name";
+    setSortOrder(nextSort);
+    updateQuery({ category: categoryFilter, date: selectedDate, sort: nextSort });
   }
 
   return (
@@ -171,7 +188,7 @@ export function VisualPHExplorer({
             </div>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
               <span className="text-xs font-medium uppercase tracking-[0.16em] text-black/45">
                 Launch date
@@ -229,6 +246,18 @@ export function VisualPHExplorer({
               ]}
             />
 
+            <FilterSelect
+              icon={<Layers3 className="h-4 w-4" />}
+              label="Sort"
+              value={sortOrder}
+              onChange={handleSortChange}
+              options={[
+                { value: "votes", label: "Most upvoted" },
+                { value: "rank", label: "Daily rank" },
+                { value: "name", label: "Product name" }
+              ]}
+            />
+
           </div>
         </div>
       </section>
@@ -252,7 +281,7 @@ export function VisualPHExplorer({
                 launch{filteredLaunches.length === 1 ? "" : "es"}
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-5">
               {filteredLaunches.map((launch) => (
                 <LaunchCard key={launch.id} launch={launch} />
               ))}
@@ -313,8 +342,39 @@ function FilterSelect({
 
 function LaunchCard({ launch }: { launch: Launch }) {
   return (
-    <Card className="overflow-hidden bg-white/92">
-      <CardHeader className="gap-3 p-4">
+    <Card className="grid overflow-hidden bg-white/92 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+      <div>
+      <CardHeader className="gap-3 p-5">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="text-xl">{launch.name}</CardTitle>
+              <CardDescription className="mt-2 text-sm leading-6 text-black/70">
+                {launch.tagline}
+              </CardDescription>
+            </div>
+            <div className="rounded-md border border-black/10 bg-[#f8f3ea] px-2 py-1 text-right">
+              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">Rank</div>
+              <div className="text-sm font-semibold text-ink">#{launch.rank}</div>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 p-5 pt-0">
+        <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+          <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
+          <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
+          <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
+        </div>
+      </CardContent>
+      </div>
+
+      <div className="border-t border-black/10 bg-[#f8f3ea] p-4 lg:border-l lg:border-t-0">
         <LaunchScreenshot
           name={launch.name}
           tagline={launch.tagline}
@@ -323,40 +383,7 @@ function LaunchCard({ launch }: { launch: Launch }) {
           screenshotWidth={launch.screenshotWidth}
           screenshotHeight={launch.screenshotHeight}
         />
-
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <CardTitle className="truncate text-base">{launch.name}</CardTitle>
-              <CardDescription className="mt-1 text-[13px] leading-5 text-black/70">
-                {launch.tagline}
-              </CardDescription>
-            </div>
-            <div className="rounded-md border border-black/10 bg-[#f8f3ea] px-2 py-1 text-right">
-              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">
-                Rank
-              </div>
-              <div className="text-sm font-semibold text-ink">#{launch.rank}</div>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4 p-4 pt-0">
-        <div className="text-sm">
-          <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
-          <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
-          <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
-        </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
