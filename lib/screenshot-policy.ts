@@ -1,4 +1,5 @@
 export const DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS = 30;
+export const MIN_SCREENSHOT_BYTES = 5_000;
 
 export function screenshotRefreshCutoff(days: number, now = new Date()) {
   if (!Number.isInteger(days) || days < 1) {
@@ -15,7 +16,7 @@ export function screenshotCandidateFilter(refreshAfterDays: number, now = new Da
     "screenshot_status.eq.fallback",
     "screenshot_path.is.null",
     "screenshot_url.is.null",
-    "screenshot_bytes.lt.20000",
+    `screenshot_bytes.lt.${MIN_SCREENSHOT_BYTES}`,
     "screenshot_captured_at.is.null",
     `screenshot_captured_at.lt.${cutoff}`
   ].join(",");

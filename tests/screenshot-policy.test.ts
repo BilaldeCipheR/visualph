@@ -15,7 +15,7 @@ test("candidate filter includes missing, undersized, and stale screenshots", () 
   assert.match(filter, /screenshot_url\.is\.null/);
   assert.match(filter, /screenshot_status\.eq\.pending/);
   assert.match(filter, /screenshot_status\.eq\.fallback/);
-  assert.match(filter, /screenshot_bytes\.lt\.20000/);
+  assert.match(filter, /screenshot_bytes\.lt\.5000/);
   assert.match(filter, /screenshot_captured_at\.lt\.2026-08-04T12:00:00\.000Z/);
 });
 
