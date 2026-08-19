@@ -7,7 +7,10 @@ import {
   isScreenshotCoverageHealthy,
   isSyncFresh
 } from "@/lib/health";
-import { DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS } from "@/lib/screenshot-policy";
+import {
+  DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
+  MIN_SCREENSHOT_BYTES
+} from "@/lib/screenshot-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,7 @@ export async function GET() {
     const { data, error } = await supabase
       .rpc("products_health_summary_v2", {
         p_refresh_after_days: DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
-        p_min_screenshot_bytes: 20_000
+        p_min_screenshot_bytes: MIN_SCREENSHOT_BYTES
       })
       .single();
 
