@@ -14,6 +14,7 @@ import {
   screenshotCandidateFilter
 } from "../lib/screenshot-policy";
 import { buildScreenshotStoragePath } from "../lib/screenshot-path";
+import { attemptScreenshotUpload } from "../lib/screenshot-upload";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -44,7 +45,7 @@ type CaptureResult = {
   captureStatus: "captured" | "fallback";
   captureSource?: "product-media" | "website";
   contentType?: string;
-  failurePhase?: "media" | "navigation" | "screenshot" | "unknown";
+  failurePhase?: "media" | "navigation" | "screenshot" | "unknown" | "upload";
   failureReason?: string;
   height?: number;
   width?: number;
@@ -181,19 +182,26 @@ async function processProduct(input: {
           slug: product.slug
         })
       : null;
-  const screenshotUrl =
+  const uploadAttempt =
     capture.captureStatus === "captured" && screenshotPath
-      ? await uploadScreenshotBuffer({
-          bucket: options.bucket,
-          buffer: capture.buffer,
-          contentType: capture.contentType ?? "image/png",
-          path: screenshotPath,
-          supabase
-        })
+      ? await attemptScreenshotUpload(() =>
+          uploadScreenshotBuffer({
+            bucket: options.bucket,
+            buffer: capture.buffer,
+            contentType: capture.contentType ?? "image/png",
+            path: screenshotPath,
+            supabase
+          })
+        )
       : null;
+  const finalCapture =
+    uploadAttempt && !uploadAttempt.ok
+      ? buildFallbackCapture("upload", uploadAttempt.error, product.url)
+      : capture;
+  const screenshotUrl = uploadAttempt?.ok ? uploadAttempt.value : null;
 
   await updateScreenshotMetadata({
-    capture,
+    capture: finalCapture,
     options,
     product,
     screenshotPath: screenshotUrl ? screenshotPath : null,
@@ -202,10 +210,10 @@ async function processProduct(input: {
   });
 
   return {
-    captureStatus: capture.captureStatus,
-    captureSource: capture.captureSource,
-    failurePhase: capture.failurePhase,
-    failureReason: capture.failureReason,
+    captureStatus: finalCapture.captureStatus,
+    captureSource: finalCapture.captureSource,
+    failurePhase: finalCapture.failurePhase,
+    failureReason: finalCapture.failureReason,
     id: product.id,
     name: product.name,
     screenshotPath: screenshotUrl ? screenshotPath : null,
