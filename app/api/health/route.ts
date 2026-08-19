@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 type ProductsHealthSummary = {
   last_screenshot_captured_at: string | null;
+  failed_screenshots: number;
   latest_launch_date: string | null;
   missing_screenshots: number;
   stale_screenshots: number;
@@ -26,8 +27,9 @@ export async function GET() {
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
-      .rpc("products_health_summary", {
-        p_refresh_after_days: DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS
+      .rpc("products_health_summary_v2", {
+        p_refresh_after_days: DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
+        p_min_screenshot_bytes: 20_000
       })
       .single();
 
@@ -68,6 +70,7 @@ export async function GET() {
           latestDateProductCount: latestProducts.length,
           latestDateMissing: latestMissingScreenshotCount,
           missing: summary?.missing_screenshots ?? 0,
+          failed: summary?.failed_screenshots ?? 0,
           stale: summary?.stale_screenshots ?? 0,
           undersized: summary?.undersized_screenshots ?? 0,
           latestCapturedAt: summary?.last_screenshot_captured_at ?? null

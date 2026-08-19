@@ -1,5 +1,4 @@
 type ScreenshotPathInput = {
-  contentType?: string;
   launchDate: string;
   pathPrefix: string;
   productId: string;
@@ -10,7 +9,6 @@ const LAUNCH_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function buildScreenshotStoragePath(input: ScreenshotPathInput) {
   const {
-    contentType = "image/png",
     launchDate,
     pathPrefix,
     productId,
@@ -22,22 +20,7 @@ export function buildScreenshotStoragePath(input: ScreenshotPathInput) {
   }
 
   const safeSlug = sanitizePathPart(slug || productId);
-  return `${pathPrefix}/${launchDate}/${safeSlug}/latest.${extensionForContentType(contentType)}`;
-}
-
-function extensionForContentType(contentType: string) {
-  switch (contentType) {
-    case "image/avif":
-      return "avif";
-    case "image/gif":
-      return "gif";
-    case "image/jpeg":
-      return "jpg";
-    case "image/webp":
-      return "webp";
-    default:
-      return "png";
-  }
+  return `${pathPrefix}/${launchDate}/${safeSlug}/latest.webp`;
 }
 
 function sanitizePathPart(value: string) {

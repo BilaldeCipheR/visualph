@@ -5,6 +5,7 @@ type PageProps = {
   searchParams?: Promise<{
     category?: string;
     date?: string;
+    sort?: string;
   }>;
 };
 
@@ -27,6 +28,9 @@ export default async function Page({ searchParams }: PageProps) {
     typeof params?.category === "string" && params.category.trim()
       ? params.category
       : "all";
+  const selectedSort = ["votes", "rank", "name"].includes(params?.sort ?? "")
+    ? (params?.sort as "votes" | "rank" | "name")
+    : "votes";
 
   const products = await getProducts({ date: selectedDate });
 
@@ -56,6 +60,7 @@ export default async function Page({ searchParams }: PageProps) {
       launches={launches}
       selectedCategory={selectedCategory}
       selectedDate={selectedDate}
+      selectedSort={selectedSort}
     />
   );
 }

@@ -23,7 +23,7 @@ export function LaunchScreenshot({
 }: LaunchScreenshotProps) {
   if (screenshotUrl) {
     return (
-      <div className="max-h-96 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable]">
+      <div className="max-h-[34rem] touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable]">
         <Image
           alt={`${name} product screenshot`}
           className="block h-auto w-full"
@@ -99,4 +99,3 @@ export function LaunchScreenshot({
     </div>
   );
 }
-

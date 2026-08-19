@@ -13,6 +13,8 @@ test("screenshot refresh cutoff is age based", () => {
 test("candidate filter includes missing, undersized, and stale screenshots", () => {
   const filter = screenshotCandidateFilter(7, new Date("2026-08-11T12:00:00.000Z"));
   assert.match(filter, /screenshot_url\.is\.null/);
+  assert.match(filter, /screenshot_status\.eq\.pending/);
+  assert.match(filter, /screenshot_status\.eq\.fallback/);
   assert.match(filter, /screenshot_bytes\.lt\.20000/);
   assert.match(filter, /screenshot_captured_at\.lt\.2026-08-04T12:00:00\.000Z/);
 });

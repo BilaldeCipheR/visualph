@@ -13,6 +13,7 @@ import {
   DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
   screenshotCandidateFilter
 } from "../lib/screenshot-policy";
+import { optimizeScreenshot, SCREENSHOT_CONTENT_TYPE } from "../lib/screenshot-image";
 import { buildScreenshotStoragePath } from "../lib/screenshot-path";
 import { attemptScreenshotUpload } from "../lib/screenshot-upload";
 
@@ -21,6 +22,7 @@ type JsonRecord = Record<string, unknown>;
 type CliOptions = {
   all: boolean;
   bucket: string;
+  date?: string;
   id?: string;
   json: boolean;
   limit: number;
@@ -34,6 +36,7 @@ type CliOptions = {
 type ProductTarget = {
   fallbackImageUrl: string | null;
   id: string;
+  screenshotAttemptCount: number;
   launchDate: string;
   name: string;
   slug: string;
@@ -66,6 +69,7 @@ type ProductRunResult = {
 
 type BrowserPage = {
   close(): Promise<void>;
+  evaluate<T>(pageFunction: () => T): Promise<T>;
   goto(url: string, options: { timeout: number; waitUntil: "networkidle2" | "domcontentloaded" }): Promise<unknown>;
   screenshot(options: { fullPage: boolean; type: "png"; timeout: number }): Promise<Uint8Array>;
   setUserAgent(userAgent: string): Promise<void>;
@@ -119,7 +123,7 @@ async function main() {
   const puppeteer = await loadPuppeteer();
   const browser = await puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
     userDataDir: mkdtempSync(join(tmpdir(), "visualph-chrome-"))
   });
 
@@ -127,14 +131,24 @@ async function main() {
 
   try {
     for (const product of products) {
-      const result = await processProduct({
-        browser,
-        options,
-        product,
-        supabase
-      });
-
-      results.push(result);
+      try {
+        const result = await processProduct({ browser, options, product, supabase });
+        results.push(result);
+      } catch (error) {
+        const failureReason = toErrorMessage(error);
+        console.error(`[screenshot] unexpected failure for ${product.slug}: ${failureReason}`);
+        results.push({
+          captureStatus: "fallback",
+          failurePhase: "unknown",
+          failureReason,
+          id: product.id,
+          name: product.name,
+          screenshotPath: null,
+          screenshotUrl: null,
+          slug: product.slug,
+          url: product.url
+        });
+      }
     }
   } finally {
     await browser.close();
@@ -168,14 +182,29 @@ async function processProduct(input: {
 }) {
   const { browser, options, product, supabase } = input;
   const websiteCapture = await captureProduct(browser, product.url, options.timeoutMs);
-  const capture =
+  const rawCapture =
     websiteCapture.captureStatus === "fallback" && product.fallbackImageUrl
       ? await captureProductMedia(product.fallbackImageUrl, options.timeoutMs)
       : websiteCapture;
+  let capture = rawCapture;
+
+  if (rawCapture.captureStatus === "captured") {
+    try {
+      const optimized = await optimizeScreenshot(rawCapture.buffer);
+      capture = {
+        ...rawCapture,
+        buffer: optimized.buffer,
+        contentType: optimized.contentType,
+        height: optimized.height,
+        width: optimized.width
+      };
+    } catch (error) {
+      capture = buildFallbackCapture("screenshot", error, product.url);
+    }
+  }
   const screenshotPath =
     capture.captureStatus === "captured"
       ? buildScreenshotStoragePath({
-          contentType: capture.contentType,
           launchDate: product.launchDate,
           pathPrefix: options.pathPrefix,
           productId: product.id,
@@ -188,7 +217,7 @@ async function processProduct(input: {
           uploadScreenshotBuffer({
             bucket: options.bucket,
             buffer: capture.buffer,
-            contentType: capture.contentType ?? "image/png",
+            contentType: SCREENSHOT_CONTENT_TYPE,
             path: screenshotPath,
             supabase
           })
@@ -253,6 +282,10 @@ async function resolveTargets(supabase: SupabaseClient, options: CliOptions) {
     .order("launch_date", { ascending: false })
     .order("votes_count", { ascending: false });
 
+  if (options.date) {
+    query = query.eq("launch_date", options.date);
+  }
+
   if (!options.all) {
     query = query.limit(options.limit);
   }
@@ -279,9 +312,22 @@ async function captureProduct(browser: BrowserInstance, url: string, timeoutMs: 
     try {
       await page.goto(url, {
         timeout: timeoutMs,
-        waitUntil: "domcontentloaded"
+        waitUntil: "networkidle2"
       });
-      await new Promise((resolve) => setTimeout(resolve, 2500));
+    } catch (firstError) {
+      console.warn(`[screenshot] networkidle2 retry for ${url}: ${toErrorMessage(firstError)}`);
+      try {
+        await page.goto(url, {
+          timeout: timeoutMs,
+          waitUntil: "domcontentloaded"
+        });
+      } catch (error) {
+        return buildFallbackCapture("navigation", error, url);
+      }
+    }
+
+    try {
+      await scrollLazyContent(page);
 
       if (isProductHuntUrl(page.url())) {
         return buildFallbackCapture(
@@ -410,23 +456,26 @@ async function updateScreenshotMetadata(input: {
   const updatePayload: JsonRecord =
     capture.captureStatus === "captured"
       ? {
+          screenshot_status: "captured",
+          screenshot_source:
+            capture.captureSource === "product-media" ? "product-media" : "website",
+          screenshot_error: null,
+          screenshot_attempt_count: product.screenshotAttemptCount + 1,
+          screenshot_last_attempted_at: now,
           screenshot_bucket: options.bucket,
           screenshot_path: screenshotPath,
           screenshot_url: screenshotUrl,
           screenshot_width: capture.width ?? null,
           screenshot_height: capture.height ?? null,
           screenshot_bytes: capture.buffer.byteLength,
-          screenshot_mime_type: capture.contentType ?? "image/png",
+          screenshot_mime_type: SCREENSHOT_CONTENT_TYPE,
           screenshot_captured_at: now
         }
       : {
-          screenshot_path: null,
-          screenshot_url: null,
-          screenshot_width: null,
-          screenshot_height: null,
-          screenshot_bytes: null,
-          screenshot_mime_type: null,
-          screenshot_captured_at: null
+          screenshot_status: "fallback",
+          screenshot_error: capture.failureReason ?? "Unknown screenshot failure",
+          screenshot_attempt_count: product.screenshotAttemptCount + 1,
+          screenshot_last_attempted_at: now
         };
 
   const { error } = await supabase
@@ -469,6 +518,7 @@ function toProductTarget(row: JsonRecord): ProductTarget {
   const name = readString(row, ["name"], slug);
   const url = readString(row, ["website_url", "url", "product_url"]);
   const fallbackImageUrl = selectProductMediaUrl(row.source_payload);
+  const screenshotAttemptCount = readNumber(row, "screenshot_attempt_count");
 
   if (!id || !launchDate || !url) {
     throw new Error(
@@ -476,7 +526,12 @@ function toProductTarget(row: JsonRecord): ProductTarget {
     );
   }
 
-  return { fallbackImageUrl, id, launchDate, name, slug, url };
+  return { fallbackImageUrl, id, launchDate, name, screenshotAttemptCount, slug, url };
+}
+
+function readNumber(row: JsonRecord, key: string) {
+  const value = row[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 function readString(row: JsonRecord, keys: string[], fallback = "") {
@@ -557,6 +612,9 @@ function parseArgs(argv: string[]): CliOptions {
       case "--slug":
         options.slug = readRequiredValue(argv, ++index, current);
         break;
+      case "--date":
+        options.date = readDate(readRequiredValue(argv, ++index, current), current);
+        break;
       case "--limit":
         options.limit = parsePositiveInteger(readRequiredValue(argv, ++index, current), current);
         break;
@@ -628,6 +686,7 @@ function printHelp() {
 Options:
   --id <id>             Process one product by database id.
   --slug <slug>         Process one product by slug.
+  --date <YYYY-MM-DD>   Process candidates from one launch date only.
   --limit <n>           Process the next pending batch from Supabase. Default: ${DEFAULT_LIMIT}
   --all                 Process every product currently missing screenshot metadata.
   --timeout-ms <ms>     Navigation and screenshot timeout. Default: ${DEFAULT_TIMEOUT_MS}
@@ -662,6 +721,26 @@ function toErrorMessage(error: unknown) {
   }
 
   return typeof error === "string" ? error : "Unknown error";
+}
+
+function readDate(raw: string, flag: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || Number.isNaN(Date.parse(`${raw}T00:00:00.000Z`))) {
+    throw new Error(`${flag} must use YYYY-MM-DD.`);
+  }
+
+  return raw;
+}
+
+async function scrollLazyContent(page: BrowserPage) {
+  for (let step = 0; step < 6; step += 1) {
+    await page.evaluate(() => {
+      window.scrollBy(0, Math.max(window.innerHeight, 900));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
 void main().catch((error) => {
