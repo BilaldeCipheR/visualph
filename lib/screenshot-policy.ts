@@ -11,6 +11,8 @@ export function screenshotRefreshCutoff(days: number, now = new Date()) {
 export function screenshotCandidateFilter(refreshAfterDays: number, now = new Date()) {
   const cutoff = screenshotRefreshCutoff(refreshAfterDays, now);
   return [
+    "screenshot_status.eq.pending",
+    "screenshot_status.eq.fallback",
     "screenshot_path.is.null",
     "screenshot_url.is.null",
     "screenshot_bytes.lt.20000",
