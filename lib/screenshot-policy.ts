@@ -1,5 +1,5 @@
 export const DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS = 30;
-export const MIN_SCREENSHOT_BYTES = 5_000;
+export const MIN_SCREENSHOT_BYTES = 2_000;
 
 export function screenshotRefreshCutoff(days: number, now = new Date()) {
   if (!Number.isInteger(days) || days < 1) {
