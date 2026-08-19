@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_MAX_SYNC_LAG_DAYS,
   differenceInUtcDays,
+  isScreenshotCoverageHealthy,
   isSyncFresh
 } from "@/lib/health";
 import { DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS } from "@/lib/screenshot-policy";
@@ -38,10 +39,21 @@ export async function GET() {
     const latestLaunchDate = summary?.latest_launch_date ? String(summary.latest_launch_date) : null;
     const lagDays = latestLaunchDate ? differenceInUtcDays(latestLaunchDate, checkedAt) : null;
     const syncFresh = isSyncFresh(latestLaunchDate, checkedAt, DEFAULT_MAX_SYNC_LAG_DAYS);
+    const latestProducts = latestLaunchDate
+      ? await loadLatestScreenshotCoverage(supabase, latestLaunchDate)
+      : [];
+    const latestMissingScreenshotCount = latestProducts.filter(
+      (product) => !product.screenshot_url
+    ).length;
+    const screenshotsHealthy = isScreenshotCoverageHealthy(
+      latestProducts.length,
+      latestMissingScreenshotCount
+    );
+    const healthy = syncFresh && screenshotsHealthy;
 
     return NextResponse.json(
       {
-        ok: syncFresh,
+        ok: healthy,
         checkedAt,
         database: "reachable",
         productCount: summary?.total_products ?? 0,
@@ -52,6 +64,9 @@ export async function GET() {
           maxLagDays: DEFAULT_MAX_SYNC_LAG_DAYS
         },
         screenshots: {
+          status: screenshotsHealthy ? "healthy" : "incomplete",
+          latestDateProductCount: latestProducts.length,
+          latestDateMissing: latestMissingScreenshotCount,
           missing: summary?.missing_screenshots ?? 0,
           stale: summary?.stale_screenshots ?? 0,
           undersized: summary?.undersized_screenshots ?? 0,
@@ -59,7 +74,7 @@ export async function GET() {
         }
       },
       {
-        status: syncFresh ? 200 : 503,
+        status: healthy ? 200 : 503,
         headers: {
           "Cache-Control": "no-store"
         }
@@ -80,6 +95,22 @@ export async function GET() {
       }
     );
   }
+}
+
+async function loadLatestScreenshotCoverage(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  latestLaunchDate: string
+) {
+  const { data, error } = await supabase
+    .from("products")
+    .select("screenshot_url")
+    .eq("launch_date", latestLaunchDate);
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
 }
 
 function toProductsHealthSummary(value: unknown): ProductsHealthSummary | null {
