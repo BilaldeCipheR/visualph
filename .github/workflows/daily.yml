@@ -1,8 +1,6 @@
 name: VisualPH daily sync
 
 on:
-  schedule:
-    - cron: "30 02 * * *"
   workflow_dispatch:
     inputs:
       backfill_days:
