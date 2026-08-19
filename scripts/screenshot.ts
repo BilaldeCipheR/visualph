@@ -6,6 +6,10 @@ import { join } from "node:path";
 
 import { requireEnv } from "../lib/env";
 import {
+  selectProductMediaUrl,
+  summarizeScreenshotBatch
+} from "../lib/screenshot-fallback";
+import {
   DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
   screenshotCandidateFilter
 } from "../lib/screenshot-policy";
@@ -26,6 +30,7 @@ type CliOptions = {
 };
 
 type ProductTarget = {
+  fallbackImageUrl: string | null;
   id: string;
   name: string;
   slug: string;
@@ -35,7 +40,9 @@ type ProductTarget = {
 type CaptureResult = {
   buffer: Buffer;
   captureStatus: "captured" | "fallback";
-  failurePhase?: "navigation" | "screenshot" | "unknown";
+  captureSource?: "product-media" | "website";
+  contentType?: string;
+  failurePhase?: "media" | "navigation" | "screenshot" | "unknown";
   failureReason?: string;
   height?: number;
   width?: number;
@@ -43,6 +50,7 @@ type CaptureResult = {
 
 type ProductRunResult = {
   captureStatus: CaptureResult["captureStatus"];
+  captureSource?: CaptureResult["captureSource"];
   failurePhase?: CaptureResult["failurePhase"];
   failureReason?: string;
   id: string;
@@ -77,6 +85,13 @@ const DEFAULT_PATH_PREFIX = "products";
 const DEFAULT_TABLE = "products";
 const DEFAULT_TIMEOUT_MS = 45_000;
 const DEFAULT_LIMIT = 20;
+const SUPPORTED_FALLBACK_IMAGE_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -122,14 +137,24 @@ async function main() {
     await browser.close();
   }
 
-  const fallbackCount = results.filter((result) => result.captureStatus === "fallback").length;
+  const summary = summarizeScreenshotBatch(results);
+
+  if (summary.status === "partial") {
+    console.warn(
+      `[screenshot] ${summary.failed} of ${summary.processed} captures failed and remain queued for retry`
+    );
+  }
 
   logJson(options.json, {
-    fallbackCount,
-    ok: true,
-    processed: results.length,
+    fallbackCount: summary.failed,
+    ok: summary.status !== "failed",
+    processed: summary.processed,
     results
   });
+
+  if (summary.status === "failed") {
+    throw new Error(`All ${summary.processed} screenshot captures failed.`);
+  }
 }
 
 async function processProduct(input: {
@@ -139,13 +164,21 @@ async function processProduct(input: {
   supabase: SupabaseClient;
 }) {
   const { browser, options, product, supabase } = input;
-  const screenshotPath = buildScreenshotPath(product, options.pathPrefix);
-  const capture = await captureProduct(browser, product.url, options.timeoutMs);
-  const screenshotUrl =
+  const websiteCapture = await captureProduct(browser, product.url, options.timeoutMs);
+  const capture =
+    websiteCapture.captureStatus === "fallback" && product.fallbackImageUrl
+      ? await captureProductMedia(product.fallbackImageUrl, options.timeoutMs)
+      : websiteCapture;
+  const screenshotPath =
     capture.captureStatus === "captured"
+      ? buildScreenshotPath(product, options.pathPrefix, capture.contentType)
+      : null;
+  const screenshotUrl =
+    capture.captureStatus === "captured" && screenshotPath
       ? await uploadScreenshotBuffer({
           bucket: options.bucket,
           buffer: capture.buffer,
+          contentType: capture.contentType ?? "image/png",
           path: screenshotPath,
           supabase
         })
@@ -162,6 +195,7 @@ async function processProduct(input: {
 
   return {
     captureStatus: capture.captureStatus,
+    captureSource: capture.captureSource,
     failurePhase: capture.failurePhase,
     failureReason: capture.failureReason,
     id: product.id,
@@ -256,6 +290,8 @@ async function captureProduct(browser: BrowserInstance, url: string, timeoutMs: 
       return {
         buffer,
         captureStatus: "captured",
+        captureSource: "website",
+        contentType: "image/png",
         height,
         width
       };
@@ -264,6 +300,45 @@ async function captureProduct(browser: BrowserInstance, url: string, timeoutMs: 
     }
   } finally {
     await page.close();
+  }
+}
+
+async function captureProductMedia(url: string, timeoutMs: number): Promise<CaptureResult> {
+  try {
+    const response = await fetch(url, {
+      redirect: "follow",
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: {
+        Accept: "image/*"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Product media request returned HTTP ${response.status}.`);
+    }
+
+    const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim();
+    if (!contentType || !SUPPORTED_FALLBACK_IMAGE_TYPES.has(contentType)) {
+      throw new Error(`Product media returned unsupported content type: ${contentType ?? "missing"}.`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length === 0) {
+      throw new Error("Product media response was empty.");
+    }
+
+    const dimensions = contentType === "image/png" ? readPngDimensions(buffer) : {};
+    console.warn(`[screenshot] using Product Hunt media fallback for ${url}`);
+
+    return {
+      buffer,
+      captureStatus: "captured",
+      captureSource: "product-media",
+      contentType,
+      ...dimensions
+    };
+  } catch (error) {
+    return buildFallbackCapture("media", error, url);
   }
 }
 
@@ -287,13 +362,14 @@ function buildFallbackCapture(
 async function uploadScreenshotBuffer(input: {
   bucket: string;
   buffer: Buffer;
+  contentType: string;
   path: string;
   supabase: SupabaseClient;
 }) {
-  const { bucket, buffer, path, supabase } = input;
+  const { bucket, buffer, contentType, path, supabase } = input;
   const storage = supabase.storage.from(bucket);
   const { error } = await storage.upload(path, buffer, {
-    contentType: "image/png",
+    contentType,
     upsert: true
   });
 
@@ -321,10 +397,10 @@ async function updateScreenshotMetadata(input: {
           screenshot_bucket: options.bucket,
           screenshot_path: screenshotPath,
           screenshot_url: screenshotUrl,
-          screenshot_width: capture.width,
-          screenshot_height: capture.height,
+          screenshot_width: capture.width ?? null,
+          screenshot_height: capture.height ?? null,
           screenshot_bytes: capture.buffer.byteLength,
-          screenshot_mime_type: "image/png",
+          screenshot_mime_type: capture.contentType ?? "image/png",
           screenshot_captured_at: now
         }
       : {
@@ -370,9 +446,13 @@ function readPngDimensions(buffer: Buffer) {
   };
 }
 
-function buildScreenshotPath(product: ProductTarget, pathPrefix: string) {
+function buildScreenshotPath(
+  product: ProductTarget,
+  pathPrefix: string,
+  contentType = "image/png"
+) {
   const safeSlug = sanitizePathPart(product.slug || product.id);
-  return `${pathPrefix}/${safeSlug}/latest.png`;
+  return `${pathPrefix}/${safeSlug}/latest.${extensionForContentType(contentType)}`;
 }
 
 function toProductTarget(row: JsonRecord): ProductTarget {
@@ -380,12 +460,28 @@ function toProductTarget(row: JsonRecord): ProductTarget {
   const slug = readString(row, ["slug"], id);
   const name = readString(row, ["name"], slug);
   const url = readString(row, ["website_url", "url", "product_url"]);
+  const fallbackImageUrl = selectProductMediaUrl(row.source_payload);
 
   if (!id || !url) {
     throw new Error(`Product row is missing required fields: ${JSON.stringify({ id, slug, url })}`);
   }
 
-  return { id, name, slug, url };
+  return { fallbackImageUrl, id, name, slug, url };
+}
+
+function extensionForContentType(contentType: string) {
+  switch (contentType) {
+    case "image/avif":
+      return "avif";
+    case "image/gif":
+      return "gif";
+    case "image/jpeg":
+      return "jpg";
+    case "image/webp":
+      return "webp";
+    default:
+      return "png";
+  }
 }
 
 function readString(row: JsonRecord, keys: string[], fallback = "") {
