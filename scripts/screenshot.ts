@@ -278,7 +278,7 @@ async function resolveTargets(supabase: SupabaseClient, options: CliOptions) {
   let query = supabase
     .from(options.table)
     .select("*")
-    .or(screenshotCandidateFilter(options.refreshAfterDays))
+    .or(screenshotCandidateFilter(options.refreshAfterDays, new Date(), Boolean(options.date)))
     .order("launch_date", { ascending: false })
     .order("votes_count", { ascending: false });
 
@@ -686,7 +686,7 @@ function printHelp() {
 Options:
   --id <id>             Process one product by database id.
   --slug <slug>         Process one product by slug.
-  --date <YYYY-MM-DD>   Process candidates from one launch date only.
+  --date <YYYY-MM-DD>   Process candidates and replace legacy non-WebP screenshots for one launch date.
   --limit <n>           Process the next pending batch from Supabase. Default: ${DEFAULT_LIMIT}
   --all                 Process every product currently missing screenshot metadata.
   --timeout-ms <ms>     Navigation and screenshot timeout. Default: ${DEFAULT_TIMEOUT_MS}
