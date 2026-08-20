@@ -23,7 +23,11 @@ export function LaunchScreenshot({
 }: LaunchScreenshotProps) {
   if (screenshotUrl) {
     return (
-      <div className="max-h-[34rem] touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable]">
+      <div
+        aria-label={`${name} screenshot preview`}
+        className="h-72 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable] sm:h-64"
+        tabIndex={0}
+      >
         <Image
           alt={`${name} product screenshot`}
           className="block h-auto w-full"
@@ -40,7 +44,7 @@ export function LaunchScreenshot({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-md border border-black/10 bg-[linear-gradient(180deg,#fffdf8_0%,#f4ede2_100%)]"
+        "h-72 overflow-hidden rounded-md border border-black/10 bg-[linear-gradient(180deg,#fffdf8_0%,#f4ede2_100%)] sm:h-64"
       )}
     >
       <div className="flex items-center gap-1.5 border-b border-black/10 px-3 py-2">
