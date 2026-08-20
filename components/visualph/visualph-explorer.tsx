@@ -281,7 +281,7 @@ export function VisualPHExplorer({
                 launch{filteredLaunches.length === 1 ? "" : "es"}
               </div>
             </div>
-            <div className="space-y-5">
+            <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredLaunches.map((launch) => (
                 <LaunchCard key={launch.id} launch={launch} />
               ))}
@@ -342,39 +342,8 @@ function FilterSelect({
 
 function LaunchCard({ launch }: { launch: Launch }) {
   return (
-    <Card className="grid overflow-hidden bg-white/92 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-      <div>
-      <CardHeader className="gap-3 p-5">
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <CardTitle className="text-xl">{launch.name}</CardTitle>
-              <CardDescription className="mt-2 text-sm leading-6 text-black/70">
-                {launch.tagline}
-              </CardDescription>
-            </div>
-            <div className="rounded-md border border-black/10 bg-[#f8f3ea] px-2 py-1 text-right">
-              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">Rank</div>
-              <div className="text-sm font-semibold text-ink">#{launch.rank}</div>
-            </div>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4 p-5 pt-0">
-        <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-          <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
-          <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
-          <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
-        </div>
-      </CardContent>
-      </div>
-
-      <div className="border-t border-black/10 bg-[#f8f3ea] p-4 lg:border-l lg:border-t-0">
+    <Card className="flex h-full flex-col overflow-hidden bg-white/92">
+      <div className="border-b border-black/10 bg-[#f8f3ea] p-3">
         <LaunchScreenshot
           name={launch.name}
           tagline={launch.tagline}
@@ -383,6 +352,39 @@ function LaunchCard({ launch }: { launch: Launch }) {
           screenshotWidth={launch.screenshotWidth}
           screenshotHeight={launch.screenshotHeight}
         />
+      </div>
+
+      <div className="flex flex-1 flex-col">
+        <CardHeader className="gap-3 p-5">
+          <div className="space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="text-xl">{launch.name}</CardTitle>
+                <CardDescription className="mt-2 text-sm leading-6 text-black/70">
+                  {launch.tagline}
+                </CardDescription>
+              </div>
+              <div className="shrink-0 rounded-md border border-black/10 bg-[#f8f3ea] px-2 py-1 text-right">
+                <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">
+                  Rank
+                </div>
+                <div className="text-sm font-semibold text-ink">#{launch.rank}</div>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="mt-auto space-y-4 p-5 pt-0">
+          <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
+          <div className="grid grid-cols-2 gap-2">
+            <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
+            <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
+            <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
+          </div>
+        </CardContent>
       </div>
     </Card>
   );
