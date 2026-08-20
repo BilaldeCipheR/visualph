@@ -72,8 +72,8 @@ async function queryProductsByDate(date: string): Promise<ProductRecord[]> {
 
 const getCachedProductsByDate = unstable_cache(
   queryProductsByDate,
-  ["visualph-products-by-date-v1"],
-  { revalidate: 60 * 60 }
+  ["visualph-products-by-date-v2"],
+  { revalidate: 60 }
 );
 
 export async function getProducts({ date }: ProductFilterState): Promise<ProductRecord[]> {
