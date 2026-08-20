@@ -1,11 +1,6 @@
 name: VisualPH daily sync
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/rollout-v2.json"
   schedule:
     - cron: "30 02 * * *"
   workflow_dispatch:
@@ -76,11 +71,6 @@ jobs:
 
       - name: Fetch Product Hunt launches
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            BACKFILL_START_DATE=$(jq -r '.start_date' .github/rollout-v2.json)
-            BACKFILL_DAYS=$(jq -r '.backfill_days' .github/rollout-v2.json)
-          fi
-
           if ! [[ "$BACKFILL_DAYS" =~ ^[0-9]+$ ]] || (( BACKFILL_DAYS < 1 || BACKFILL_DAYS > 30 )); then
             echo "backfill_days must be between 1 and 30"
             exit 1
