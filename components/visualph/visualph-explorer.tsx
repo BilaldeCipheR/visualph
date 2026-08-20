@@ -281,7 +281,7 @@ export function VisualPHExplorer({
                 launch{filteredLaunches.length === 1 ? "" : "es"}
               </div>
             </div>
-            <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredLaunches.map((launch) => (
                 <LaunchCard key={launch.id} launch={launch} />
               ))}
