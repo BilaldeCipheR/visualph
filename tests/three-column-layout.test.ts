@@ -12,7 +12,7 @@ const screenshotSource = readFileSync(
 );
 
 test("launch grid uses one, two, and three responsive columns", () => {
-  assert.match(explorerSource, /md:grid-cols-2 xl:grid-cols-3/);
+  assert.match(explorerSource, /md:grid-cols-2 lg:grid-cols-3/);
   assert.match(explorerSource, /flex h-full flex-col overflow-hidden/);
 });
 
