@@ -19,6 +19,8 @@ test("launch grid uses one, two, and three responsive columns", () => {
 test("tall screenshots remain uncropped and keyboard scrollable", () => {
   assert.match(screenshotSource, /overflow-y-auto/);
   assert.match(screenshotSource, /className="block h-auto w-full"/);
+  assert.match(screenshotSource, /max-h-72.*sm:max-h-64/);
+  assert.doesNotMatch(screenshotSource, /className="h-72 touch-pan-y/);
   assert.match(screenshotSource, /tabIndex=\{0\}/);
   assert.match(screenshotSource, /aria-label=\{`\$\{name\} screenshot preview`\}/);
 });
