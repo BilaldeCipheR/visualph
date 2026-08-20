@@ -25,7 +25,7 @@ export function LaunchScreenshot({
     return (
       <div
         aria-label={`${name} screenshot preview`}
-        className="h-72 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable] sm:h-64"
+        className="max-h-72 touch-pan-y overflow-y-auto rounded-md border border-black/10 bg-white [scrollbar-gutter:stable] sm:max-h-64"
         tabIndex={0}
       >
         <Image
