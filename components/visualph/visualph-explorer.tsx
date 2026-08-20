@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   ExternalLink,
-  Globe2,
   Layers3,
   Tag,
   TriangleAlert
@@ -252,7 +251,7 @@ export function VisualPHExplorer({
                 launch{filteredLaunches.length === 1 ? "" : "es"}
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:gap-4">
               {filteredLaunches.map((launch) => (
                 <LaunchCard key={launch.id} launch={launch} />
               ))}
@@ -314,7 +313,7 @@ function FilterSelect({
 function LaunchCard({ launch }: { launch: Launch }) {
   return (
     <Card className="overflow-hidden bg-white/92">
-      <CardHeader className="gap-3 p-4">
+      <CardHeader className="gap-2 p-3">
         <LaunchScreenshot
           name={launch.name}
           tagline={launch.tagline}
@@ -324,60 +323,46 @@ function LaunchCard({ launch }: { launch: Launch }) {
           screenshotHeight={launch.screenshotHeight}
         />
 
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <CardTitle className="truncate text-base">{launch.name}</CardTitle>
-              <CardDescription className="mt-1 text-[13px] leading-5 text-black/70">
+              <CardTitle className="truncate text-sm">{launch.name}</CardTitle>
+              <CardDescription className="mt-0.5 text-[11px] leading-4 text-black/70 line-clamp-2">
                 {launch.tagline}
               </CardDescription>
             </div>
-            <div className="rounded-md border border-black/10 bg-[#f8f3ea] px-2 py-1 text-right">
-              <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">
-                Rank
+            <div className="rounded-md border border-black/10 bg-[#f8f3ea] px-1.5 py-0.5 text-right">
+              <div className="text-[8px] font-medium uppercase tracking-[0.12em] text-black/45">
+                #{launch.rank}
               </div>
-              <div className="text-sm font-semibold text-ink">#{launch.rank}</div>
             </div>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4 p-4 pt-0">
-        <div className="text-sm">
-          <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
+      <CardContent className="space-y-2 p-3 pt-0">
+        <div className="flex items-center justify-between text-[12px]">
+          <span className="text-xs font-medium uppercase tracking-[0.12em] text-black/45">
+            Upvotes
+          </span>
+          <span className="font-semibold text-ink">{launch.votes.toLocaleString()}</span>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2">
-          <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
-          <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
+        <div className="flex flex-wrap gap-1 text-[11px]">
+          <span className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-0.5 text-xs text-black/70">
+            {launch.category}
+          </span>
+          <span className="inline-flex items-center rounded-md border border-black/10 bg-white px-2 py-0.5 text-xs text-black/70">
+            {launch.topic}
+          </span>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
-          <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
+        <div className="flex flex-wrap gap-1">
+          <LinkButton href={launch.productHuntUrl} label="PH" />
+          <LinkButton href={launch.websiteUrl} label="Site" variant="secondary" />
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function DataPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-black/10 bg-[#faf7f1] px-3 py-2">
-      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45">
-        {label}
-      </div>
-      <div className="mt-1 font-semibold text-ink">{value}</div>
-    </div>
-  );
-}
-
-function MetaPill({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-black/70">
-      <span className="text-black/45">{icon}</span>
-      <span className="truncate">{text}</span>
-    </div>
   );
 }
 
@@ -398,14 +383,14 @@ function LinkButton({
       target="_blank"
       rel="noreferrer"
       className={cn(
-        "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition",
         primary
           ? "border-ink bg-ink text-white hover:opacity-90"
           : "border-black/10 bg-white text-black/70 hover:bg-black/5"
       )}
     >
       {label}
-      <ExternalLink className="h-3.5 w-3.5" />
+      <ExternalLink className="h-2.5 w-2.5" />
     </a>
   );
 }
