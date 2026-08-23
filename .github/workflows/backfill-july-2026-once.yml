@@ -10,43 +10,75 @@ on:
 
 concurrency:
   group: backfill-july-2026-once
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  convert:
-    name: Convert ${{ matrix.from }} to ${{ matrix.to }}
+  repair:
+    name: Repair ${{ matrix.date }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        include:
-          - from: "2026-07-24"
-            to: "2026-07-30"
-          - from: "2026-07-17"
-            to: "2026-07-23"
-          - from: "2026-07-10"
-            to: "2026-07-16"
-          - from: "2026-07-03"
-            to: "2026-07-09"
-          - from: "2026-07-01"
-            to: "2026-07-02"
+        date:
+          - "2026-07-31"
+          - "2026-07-25"
+          - "2026-07-23"
+          - "2026-07-21"
+          - "2026-07-10"
+          - "2026-07-09"
 
     env:
+      APP_URL: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22.12
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Convert stored screenshots to WebP
-        run: npx tsx scripts/convert-legacy-screenshots.ts --from "${{ matrix.from }}" --to "${{ matrix.to }}"
+      - name: Build application
+        run: npm run build
+
+      - name: Start application
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "$APP_URL" > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/visualph-start.log
+          exit 1
+
+      - name: Refresh Product Hunt data
+        shell: bash
+        run: |
+          set -euo pipefail
+          launch_date="${{ matrix.date }}"
+          response=$(curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products?date=$launch_date" \
+            -H "Authorization: Bearer $SYNC_SECRET")
+          echo "$response"
+          RESPONSE="$response" EXPECTED_DATE="$launch_date" node -e '
+            const result = JSON.parse(process.env.RESPONSE);
+            if (!result.ok || result.date !== process.env.EXPECTED_DATE) {
+              console.error("Import response did not match requested date");
+              process.exit(1);
+            }
+          '
+
+      - name: Capture pending screenshots as WebP
+        run: npm run screenshot -- --all --date "${{ matrix.date }}" --refresh-after-days 30
