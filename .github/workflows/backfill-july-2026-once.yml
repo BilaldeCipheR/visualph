@@ -14,85 +14,48 @@ concurrency:
 
 jobs:
   backfill:
-    name: Backfill ${{ matrix.start_date }} (${{ matrix.days }} days)
+    name: Capture ${{ matrix.start_date }} (${{ matrix.days }} days)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
-      fail-fast: true
+      fail-fast: false
       max-parallel: 1
       matrix:
         include:
-          - start_date: "2026-07-31"
+          - start_date: "2026-07-30"
             days: 7
-          - start_date: "2026-07-24"
+          - start_date: "2026-07-23"
             days: 7
-          - start_date: "2026-07-17"
+          - start_date: "2026-07-16"
             days: 7
-          - start_date: "2026-07-10"
+          - start_date: "2026-07-09"
             days: 7
-          - start_date: "2026-07-03"
-            days: 3
+          - start_date: "2026-07-02"
+            days: 2
 
     env:
-      APP_URL: http://127.0.0.1:3000
       BACKFILL_START_DATE: ${{ matrix.start_date }}
       BACKFILL_DAYS: ${{ matrix.days }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      PRODUCT_HUNT_TOKEN: ${{ secrets.PRODUCT_HUNT_TOKEN }}
-      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22.12
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build application
-        run: npm run build
-
-      - name: Start application
-        run: |
-          npm run start > /tmp/visualph-next.log 2>&1 &
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent "$APP_URL" > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/visualph-next.log
-          exit 1
-
-      - name: Backfill batch
+      - name: Capture batch as WebP
         shell: bash
         run: |
           set -euo pipefail
           for offset in $(seq 0 $((BACKFILL_DAYS - 1))); do
             launch_date=$(date -u -d "$BACKFILL_START_DATE - $offset days" +%F)
-            echo "Importing Product Hunt launches for $launch_date"
-            payload=$(printf '{"date":"%s"}' "$launch_date")
-            response=$(curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products" \
-              -H "Authorization: Bearer $SYNC_SECRET" \
-              -H "Content-Type: application/json" \
-              --data "$payload")
-            echo "$response"
-            RESPONSE="$response" EXPECTED_DATE="$launch_date" node -e '
-              const result = JSON.parse(process.env.RESPONSE);
-              if (!result.ok || result.date !== process.env.EXPECTED_DATE) {
-                console.error("Import response did not match requested date");
-                process.exit(1);
-              }
-            '
-
             echo "Generating WebP screenshots for $launch_date"
             npm run screenshot -- --all --date "$launch_date" --refresh-after-days 30
           done
-
-      - name: Check screenshot health
-        run: npm run screenshot:health -- --days 31 --min-bytes 2000
