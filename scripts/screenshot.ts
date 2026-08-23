@@ -27,6 +27,7 @@ type CliOptions = {
   json: boolean;
   limit: number;
   pathPrefix: string;
+  preferMedia: boolean;
   refreshAfterDays: number;
   slug?: string;
   table: string;
@@ -181,11 +182,20 @@ async function processProduct(input: {
   supabase: SupabaseClient;
 }) {
   const { browser, options, product, supabase } = input;
-  const websiteCapture = await captureProduct(browser, product.url, options.timeoutMs);
-  const rawCapture =
-    websiteCapture.captureStatus === "fallback" && product.fallbackImageUrl
+  const preferredMediaCapture =
+    options.preferMedia && product.fallbackImageUrl
       ? await captureProductMedia(product.fallbackImageUrl, options.timeoutMs)
-      : websiteCapture;
+      : null;
+  const websiteCapture =
+    preferredMediaCapture?.captureStatus === "captured"
+      ? null
+      : await captureProduct(browser, product.url, options.timeoutMs);
+  const rawCapture =
+    preferredMediaCapture?.captureStatus === "captured"
+      ? preferredMediaCapture
+      : websiteCapture?.captureStatus === "fallback" && product.fallbackImageUrl
+        ? await captureProductMedia(product.fallbackImageUrl, options.timeoutMs)
+        : websiteCapture!;
   let capture = rawCapture;
 
   if (rawCapture.captureStatus === "captured") {
@@ -594,6 +604,7 @@ function parseArgs(argv: string[]): CliOptions {
     json: true,
     limit: Number.parseInt(process.env.SCREENSHOT_BATCH_LIMIT ?? `${DEFAULT_LIMIT}`, 10),
     pathPrefix: process.env.SCREENSHOT_PATH_PREFIX ?? DEFAULT_PATH_PREFIX,
+    preferMedia: false,
     refreshAfterDays: Number.parseInt(
       process.env.SCREENSHOT_REFRESH_AFTER_DAYS ?? `${DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS}`,
       10
@@ -638,6 +649,9 @@ function parseArgs(argv: string[]): CliOptions {
         break;
       case "--all":
         options.all = true;
+        break;
+      case "--prefer-media":
+        options.preferMedia = true;
         break;
       case "--json":
         options.json = true;
@@ -689,6 +703,7 @@ Options:
   --date <YYYY-MM-DD>   Process candidates and replace legacy non-WebP screenshots for one launch date.
   --limit <n>           Process the next pending batch from Supabase. Default: ${DEFAULT_LIMIT}
   --all                 Process every product currently missing screenshot metadata.
+  --prefer-media        Prefer Product Hunt media over website navigation.
   --timeout-ms <ms>     Navigation and screenshot timeout. Default: ${DEFAULT_TIMEOUT_MS}
   --bucket <name>       Supabase Storage bucket name. Default: ${DEFAULT_BUCKET}
   --table <name>        Supabase table name. Default: ${DEFAULT_TABLE}
