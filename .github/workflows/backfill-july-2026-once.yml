@@ -14,20 +14,24 @@ concurrency:
 
 jobs:
   repair:
-    name: Repair ${{ matrix.date }}
+    name: Recover ${{ matrix.slug }} from product media
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        date:
-          - "2026-07-31"
-          - "2026-07-25"
-          - "2026-07-23"
-          - "2026-07-21"
-          - "2026-07-10"
-          - "2026-07-09"
+        include:
+          - date: "2026-07-22"
+            slug: "ultrapod"
+          - date: "2026-07-11"
+            slug: "chatgpt-work"
+          - date: "2026-07-17"
+            slug: "yapper-leaderboard"
+          - date: "2026-07-14"
+            slug: "branda-2"
+          - date: "2026-07-12"
+            slug: "justvibe-3"
 
     env:
       APP_URL: http://127.0.0.1:3000
@@ -48,6 +52,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
 
       - name: Build application
         run: npm run build
@@ -75,10 +82,9 @@ jobs:
           RESPONSE="$response" EXPECTED_DATE="$launch_date" node -e '
             const result = JSON.parse(process.env.RESPONSE);
             if (!result.ok || result.date !== process.env.EXPECTED_DATE) {
-              console.error("Import response did not match requested date");
               process.exit(1);
             }
           '
 
-      - name: Capture pending screenshots as WebP
-        run: npm run screenshot -- --all --date "${{ matrix.date }}" --refresh-after-days 30
+      - name: Replace low-quality capture with product media
+        run: npm run screenshot -- --slug "${{ matrix.slug }}" --prefer-media
