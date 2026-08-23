@@ -1,0 +1,51 @@
+name: VisualPH targeted screenshot recapture
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "Product slug to recapture"
+        required: true
+        type: string
+
+concurrency:
+  group: visualph-screenshot-recapture
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  recapture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SCREENSHOT_BUCKET: screenshots
+      TARGET_SLUG: ${{ inputs.slug }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate slug
+        shell: bash
+        run: |
+          if ! [[ "$TARGET_SLUG" =~ ^[a-z0-9-]+$ ]]; then
+            echo "slug must contain only lowercase letters, numbers, and hyphens"
+            exit 1
+          fi
+
+      - name: Recapture screenshot
+        run: npm run screenshot -- --slug "$TARGET_SLUG" --refresh-after-days 30
