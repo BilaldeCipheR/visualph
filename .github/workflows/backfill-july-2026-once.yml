@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: backfill-july-2026-once
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   convert:
