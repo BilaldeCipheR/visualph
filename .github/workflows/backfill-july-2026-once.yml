@@ -13,29 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backfill:
-    name: Capture ${{ matrix.start_date }} (${{ matrix.days }} days)
+  convert:
+    name: Convert ${{ matrix.from }} to ${{ matrix.to }}
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
         include:
-          - start_date: "2026-07-30"
-            days: 7
-          - start_date: "2026-07-23"
-            days: 7
-          - start_date: "2026-07-16"
-            days: 7
-          - start_date: "2026-07-09"
-            days: 7
-          - start_date: "2026-07-02"
-            days: 2
+          - from: "2026-07-24"
+            to: "2026-07-30"
+          - from: "2026-07-17"
+            to: "2026-07-23"
+          - from: "2026-07-10"
+            to: "2026-07-16"
+          - from: "2026-07-03"
+            to: "2026-07-09"
+          - from: "2026-07-01"
+            to: "2026-07-02"
 
     env:
-      BACKFILL_START_DATE: ${{ matrix.start_date }}
-      BACKFILL_DAYS: ${{ matrix.days }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
@@ -50,12 +48,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture batch as WebP
-        shell: bash
-        run: |
-          set -euo pipefail
-          for offset in $(seq 0 $((BACKFILL_DAYS - 1))); do
-            launch_date=$(date -u -d "$BACKFILL_START_DATE - $offset days" +%F)
-            echo "Generating WebP screenshots for $launch_date"
-            npm run screenshot -- --all --date "$launch_date" --refresh-after-days 30
-          done
+      - name: Convert stored screenshots to WebP
+        run: npx tsx scripts/convert-legacy-screenshots.ts --from "${{ matrix.from }}" --to "${{ matrix.to }}"
