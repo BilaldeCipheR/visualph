@@ -1,4 +1,4 @@
-name: Backfill July 2026 once
+name: Backfill July 2026 Once
 
 on:
   push:
@@ -6,92 +6,93 @@ on:
       - agent/july-2026-backfill
     paths:
       - .github/workflows/backfill-july-2026-once.yml
+  workflow_dispatch:
 
 concurrency:
-  group: visualph-july-2026-backfill
+  group: backfill-july-2026-once
   cancel-in-progress: false
-
-permissions:
-  contents: read
 
 jobs:
   backfill:
+    name: Backfill ${{ matrix.start_date }} (${{ matrix.days }} days)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 90
     strategy:
       fail-fast: true
       max-parallel: 1
       matrix:
-        batch:
-          - label: "July 31-25"
-            start_date: "2026-07-31"
+        include:
+          - start_date: "2026-07-31"
             days: 7
-          - label: "July 24-18"
-            start_date: "2026-07-24"
+          - start_date: "2026-07-24"
             days: 7
-          - label: "July 17-11"
-            start_date: "2026-07-17"
+          - start_date: "2026-07-17"
             days: 7
-          - label: "July 10-04"
-            start_date: "2026-07-10"
+          - start_date: "2026-07-10"
             days: 7
-          - label: "July 03-01"
-            start_date: "2026-07-03"
+          - start_date: "2026-07-03"
             days: 3
-    name: ${{ matrix.batch.label }}
+
     env:
-      NEXT_TELEMETRY_DISABLED: "1"
-      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      APP_URL: http://127.0.0.1:3000
+      BACKFILL_START_DATE: ${{ matrix.start_date }}
+      BACKFILL_DAYS: ${{ matrix.days }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PRODUCT_HUNT_TOKEN: ${{ secrets.PRODUCT_HUNT_TOKEN }}
       SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
-      APP_URL: http://127.0.0.1:3000
-      BASE_URL: http://127.0.0.1:3000
-      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
-      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
-      BACKFILL_DAYS: ${{ matrix.batch.days }}
-      BACKFILL_START_DATE: ${{ matrix.batch.start_date }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build app
+      - name: Build application
         run: npm run build
 
-      - name: Start app
+      - name: Start application
         run: |
-          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -fsS "$APP_URL" >/dev/null; then
+          npm run start > /tmp/visualph-next.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "$APP_URL" > /dev/null; then
               exit 0
             fi
             sleep 2
           done
-          cat /tmp/visualph-start.log
+          cat /tmp/visualph-next.log
           exit 1
 
       - name: Backfill batch
         shell: bash
         run: |
+          set -euo pipefail
           for offset in $(seq 0 $((BACKFILL_DAYS - 1))); do
             launch_date=$(date -u -d "$BACKFILL_START_DATE - $offset days" +%F)
             echo "Importing Product Hunt launches for $launch_date"
-            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products"               -H "Authorization: Bearer $SYNC_SECRET"               -H "Content-Type: application/json"               --data "{"date":"$launch_date"}"
+            payload=$(printf '{"date":"%s"}' "$launch_date")
+            response=$(curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products" \
+              -H "Authorization: Bearer $SYNC_SECRET" \
+              -H "Content-Type: application/json" \
+              --data "$payload")
+            echo "$response"
+            RESPONSE="$response" EXPECTED_DATE="$launch_date" node -e '
+              const result = JSON.parse(process.env.RESPONSE);
+              if (!result.ok || result.date !== process.env.EXPECTED_DATE) {
+                console.error("Import response did not match requested date");
+                process.exit(1);
+              }
+            '
 
             echo "Generating WebP screenshots for $launch_date"
             npm run screenshot -- --all --date "$launch_date" --refresh-after-days 30
           done
 
-      - name: Verify application health
-        run: curl --fail-with-body -sS "$APP_URL/api/health"
+      - name: Check screenshot health
+        run: npm run screenshot:health -- --days 31 --min-bytes 2000
