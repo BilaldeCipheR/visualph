@@ -1,4 +1,4 @@
-name: Improve Weak June 2026 Screenshots Once
+name: Improve Remaining June 2026 Screenshots Once
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   improve:
-    name: Replace nine weak June captures
+    name: Improve remaining weak June captures
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -35,15 +35,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Replace weak captures with product media
+      - name: Attempt each quality replacement independently
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
           slugs=(
-            "restaurant-menu-visualizer"
-            "fantasma"
-            "covari"
-            "rodeo-by-twelvelabs"
             "avatars-in-elevencreative"
             "plenx-plex-client-for-nintendo-switch"
             "walrus-memory"
@@ -53,5 +49,7 @@ jobs:
 
           for slug in "${slugs[@]}"; do
             echo "Recapturing $slug"
-            npm run screenshot -- --slug "$slug" --prefer-media
+            if ! npm run screenshot -- --slug "$slug" --prefer-media; then
+              echo "::warning::Could not improve $slug; preserved its existing screenshot"
+            fi
           done
