@@ -41,7 +41,6 @@ type VisualPHExplorerProps = {
   launches?: Launch[];
   selectedCategory: string;
   selectedDate: string;
-  selectedSort: "votes" | "rank" | "name";
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en", {
@@ -73,14 +72,12 @@ export function VisualPHExplorer({
   availableCategories,
   launches = [],
   selectedCategory,
-  selectedDate,
-  selectedSort
+  selectedDate
 }: VisualPHExplorerProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
-  const [sortOrder, setSortOrder] = React.useState(selectedSort);
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const selectedCalendarDate = React.useMemo(
     () => toDateValue(selectedDate),
@@ -107,14 +104,12 @@ export function VisualPHExplorer({
         .some((value) => value.toLowerCase() === categoryFilter.toLowerCase());
     });
 
-    return [...matched].sort((left, right) => {
-      if (sortOrder === "rank") return left.rank - right.rank;
-      if (sortOrder === "name") return left.name.localeCompare(right.name);
-      return right.votes - left.votes || left.rank - right.rank;
-    });
-  }, [categoryFilter, launches, sortOrder]);
+    return [...matched].sort(
+      (left, right) => right.votes - left.votes || left.rank - right.rank
+    );
+  }, [categoryFilter, launches]);
 
-  function updateQuery(next: { category?: string; date?: string; sort?: string }) {
+  function updateQuery(next: { category?: string; date?: string }) {
     const params = new URLSearchParams(searchParams.toString());
 
     if (next.date) {
@@ -127,11 +122,7 @@ export function VisualPHExplorer({
       params.delete("category");
     }
 
-    if (next.sort && next.sort !== "votes") {
-      params.set("sort", next.sort);
-    } else {
-      params.delete("sort");
-    }
+    params.delete("sort");
 
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -140,8 +131,7 @@ export function VisualPHExplorer({
   function handleDateChange(value: string) {
     updateQuery({
       category: categoryFilter,
-      date: value,
-      sort: sortOrder
+      date: value
     });
   }
 
@@ -149,16 +139,10 @@ export function VisualPHExplorer({
     setCategoryFilter(value);
     updateQuery({
       category: value,
-      date: selectedDate,
-      sort: sortOrder
+      date: selectedDate
     });
   }
 
-  function handleSortChange(value: string) {
-    const nextSort = value as "votes" | "rank" | "name";
-    setSortOrder(nextSort);
-    updateQuery({ category: categoryFilter, date: selectedDate, sort: nextSort });
-  }
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f6f1e8_0%,#f5efe6_100%)] text-ink">
@@ -249,13 +233,9 @@ export function VisualPHExplorer({
             <FilterSelect
               icon={<Layers3 className="h-4 w-4" />}
               label="Sort"
-              value={sortOrder}
-              onChange={handleSortChange}
-              options={[
-                { value: "votes", label: "Most upvoted" },
-                { value: "rank", label: "Daily rank" },
-                { value: "name", label: "Product name" }
-              ]}
+              value="votes"
+              onChange={() => {}}
+              options={[{ value: "votes", label: "Most upvoted" }]}
             />
 
           </div>
