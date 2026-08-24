@@ -1,0 +1,47 @@
+name: Backfill April 2026 once
+
+on:
+  push:
+    branches:
+      - agent/april-2026-backfill-20260824
+    paths:
+      - .github/workflows/backfill-april-2026-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  convert-and-backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Convert April legacy screenshots to WebP
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run screenshots:convert -- --from 2026-04-01 --to 2026-04-30
+      - name: Capture missing April screenshots
+        env:
+          PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -uo pipefail
+          failures=0
+          for day in $(seq -w 1 30); do
+            date="2026-04-$day"
+            echo "::group::Backfilling $date"
+            if ! npm run screenshot -- --date "$date" --prefer-media --limit 100; then
+              echo "::warning::Backfill reported unresolved products for $date"
+              failures=$((failures + 1))
+            fi
+            echo "::endgroup::"
+          done
+          echo "Dates with unresolved capture attempts: $failures"
