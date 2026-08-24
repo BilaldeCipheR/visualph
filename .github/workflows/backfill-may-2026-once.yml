@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   repair:
-    name: Refresh and capture 20 May products
+    name: Refresh and capture 20 May products (retry)
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
