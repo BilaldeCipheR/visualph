@@ -1,0 +1,58 @@
+name: Backfill May 2026 Once
+
+on:
+  push:
+    branches:
+      - agent/may-2026-backfill
+    paths:
+      - .github/workflows/backfill-may-2026-once.yml
+  workflow_dispatch:
+
+concurrency:
+  group: backfill-may-2026-once
+  cancel-in-progress: true
+
+jobs:
+  convert:
+    name: Convert ${{ matrix.from }} to ${{ matrix.to }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - from: "2026-05-28"
+            to: "2026-05-31"
+          - from: "2026-05-23"
+            to: "2026-05-27"
+          - from: "2026-05-19"
+            to: "2026-05-22"
+          - from: "2026-05-15"
+            to: "2026-05-18"
+          - from: "2026-05-13"
+            to: "2026-05-14"
+          - from: "2026-05-11"
+            to: "2026-05-12"
+          - from: "2026-05-07"
+            to: "2026-05-10"
+          - from: "2026-05-01"
+            to: "2026-05-06"
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Convert stored screenshots to WebP
+        run: npm run screenshots:convert -- --from "${{ matrix.from }}" --to "${{ matrix.to }}"
