@@ -36,7 +36,8 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-for (const date of [...new Set(targets.map((target) => target.date))]) {
+async function main() {
+  for (const date of [...new Set(targets.map((target) => target.date))]) {
   const { products } = await fetchAllDailyProducts(date);
   const rowsByProductHuntId = new Map(
     buildProductRows(products, date).map((row) => [row.product_hunt_id, row])
@@ -65,4 +66,10 @@ for (const date of [...new Set(targets.map((target) => target.date))]) {
 
     console.log(`Refreshed product ${target.id} for ${date}`);
   }
+  }
 }
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
