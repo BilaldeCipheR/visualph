@@ -1,4 +1,4 @@
-name: Backfill June 2026 Once
+name: Repair Missing June 2026 Screenshots Once
 
 on:
   push:
@@ -13,29 +13,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  convert:
-    name: Convert ${{ matrix.from }} to ${{ matrix.to }}
+  repair:
+    name: Repair nine missing June screenshots
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - from: "2026-06-24"
-            to: "2026-06-30"
-          - from: "2026-06-17"
-            to: "2026-06-23"
-          - from: "2026-06-10"
-            to: "2026-06-16"
-          - from: "2026-06-03"
-            to: "2026-06-09"
-          - from: "2026-06-01"
-            to: "2026-06-02"
+    timeout-minutes: 60
 
     env:
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+      APP_URL: http://127.0.0.1:3000
 
     steps:
       - uses: actions/checkout@v6
@@ -48,5 +37,52 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Convert stored screenshots to WebP
-        run: npm run screenshots:convert -- --from "${{ matrix.from }}" --to "${{ matrix.to }}"
+      - name: Build app
+        run: npm run build
+
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 > /tmp/visualph-next.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl -fsS "$APP_URL" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/visualph-next.log
+          exit 1
+
+      - name: Refresh dates and capture missing screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          dates=(
+            "2026-06-30"
+            "2026-06-27"
+            "2026-06-26"
+            "2026-06-18"
+            "2026-06-16"
+            "2026-06-07"
+            "2026-06-06"
+            "2026-06-05"
+            "2026-06-03"
+          )
+
+          for launch_date in "${dates[@]}"; do
+            echo "Refreshing $launch_date"
+            response=$(curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products?date=$launch_date" \
+              -H "Authorization: Bearer $SYNC_SECRET")
+
+            RESPONSE="$response" LAUNCH_DATE="$launch_date" node <<'NODE'
+          const response = JSON.parse(process.env.RESPONSE);
+          if (response.error) {
+            throw new Error(`Refresh failed for ${process.env.LAUNCH_DATE}: ${response.error}`);
+          }
+          if (response.date && response.date !== process.env.LAUNCH_DATE) {
+            throw new Error(`Expected ${process.env.LAUNCH_DATE}, received ${response.date}`);
+          }
+          NODE
+
+            echo "Capturing missing screenshots for $launch_date"
+            npm run screenshot -- --all --date "$launch_date" --prefer-media
+          done
