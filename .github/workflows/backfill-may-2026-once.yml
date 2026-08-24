@@ -1,4 +1,4 @@
-name: Backfill May 2026 Once
+name: Repair Missing May 2026 Screenshots
 
 on:
   push:
@@ -9,35 +9,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: backfill-may-2026-once
+  group: repair-may-2026-once
   cancel-in-progress: true
 
 jobs:
-  convert:
-    name: Convert ${{ matrix.from }} to ${{ matrix.to }}
+  repair:
+    name: Capture 20 missing May products
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        include:
-          - from: "2026-05-28"
-            to: "2026-05-31"
-          - from: "2026-05-23"
-            to: "2026-05-27"
-          - from: "2026-05-19"
-            to: "2026-05-22"
-          - from: "2026-05-15"
-            to: "2026-05-18"
-          - from: "2026-05-13"
-            to: "2026-05-14"
-          - from: "2026-05-11"
-            to: "2026-05-12"
-          - from: "2026-05-07"
-            to: "2026-05-10"
-          - from: "2026-05-01"
-            to: "2026-05-06"
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -54,5 +33,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Convert stored screenshots to WebP
-        run: npm run screenshots:convert -- --from "${{ matrix.from }}" --to "${{ matrix.to }}"
+      - name: Capture missing products as WebP
+        shell: bash
+        run: |
+          set -uo pipefail
+          failed=()
+          for product_id in             2756 2737 2685 2700 2674 2668 2641 2653 2614 2578             2596 2514 2478 2392 2326 2162 2139 2122 2110 2082
+          do
+            if ! npm run screenshot -- --id "$product_id" --prefer-media; then
+              failed+=("$product_id")
+            fi
+          done
+
+          if (( ${#failed[@]} > 0 )); then
+            echo "Failed product ids: ${failed[*]}"
+            exit 1
+          fi
