@@ -14,11 +14,12 @@ concurrency:
 
 jobs:
   repair:
-    name: Capture 20 missing May products
+    name: Refresh and capture 20 May products
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
@@ -32,6 +33,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Refresh only the 20 affected product rows
+        run: npx tsx scripts/refresh-may-targets-once.ts
 
       - name: Capture missing products as WebP
         shell: bash
