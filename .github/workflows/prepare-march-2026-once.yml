@@ -1,4 +1,4 @@
-name: Prepare and sample March 2026 once
+name: Capture remaining March 2026 once
 
 on:
   push:
@@ -11,7 +11,24 @@ permissions:
   contents: read
 
 jobs:
-  prepare-and-sample:
+  capture:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: march-01-08
+            start_day: 1
+            end_day: 8
+          - label: march-09-16
+            start_day: 9
+            end_day: 16
+          - label: march-17-24
+            start_day: 17
+            end_day: 24
+          - label: march-25-31
+            start_day: 25
+            end_day: 31
+    name: ${{ matrix.label }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
@@ -26,13 +43,19 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Convert March legacy screenshots to WebP
-        run: npx tsx scripts/convert-legacy-screenshots.ts --from 2026-03-01 --to 2026-03-31
-      - name: Rehydrate missing March product sources
-        run: npx tsx scripts/rehydrate-product-sources.ts --from 2026-03-01 --to 2026-03-31
-      - name: Capture five-date sample
+      - name: Capture date batches
         run: |
-          set -euo pipefail
-          for slug in claude-import-memory claude-marketplace dynamiclake-2 bench-for-claude-code jupid; do
-            npm run screenshot -- --slug "$slug" --prefer-media
+          set -uo pipefail
+          failed_dates=0
+          for day_num in $(seq ${{ matrix.start_day }} ${{ matrix.end_day }}); do
+            day=$(printf '%02d' "$day_num")
+            date="2026-03-$day"
+            echo "::group::Capturing $date (maximum 50 products)"
+            if ! npm run screenshot -- --date "$date" --prefer-media --limit 50; then
+              echo "::warning::Unresolved screenshots remain for $date"
+              failed_dates=$((failed_dates + 1))
+            fi
+            echo "::endgroup::"
           done
+          echo "Dates with unresolved capture attempts: $failed_dates"
+          test "$failed_dates" -eq 0
