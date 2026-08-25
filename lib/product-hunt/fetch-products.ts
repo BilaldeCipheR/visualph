@@ -122,6 +122,7 @@ export type ProductUpsertRow = {
   tagline: string;
   website_url: string;
   product_hunt_url: string;
+  thumbnail_url: string | null;
   launch_date: string;
   launched_at: string;
   featured_at: string;
@@ -268,6 +269,7 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
     tagline: product.tagline,
     website_url: product.website,
     product_hunt_url: product.url,
+    thumbnail_url: selectProductThumbnailUrl(product.media),
     launch_date: date,
     launched_at: product.featuredAt ?? launchTimestamp,
     featured_at: product.featuredAt ?? launchTimestamp,
@@ -288,6 +290,27 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
       topics: product.topics
     }
   }));
+}
+
+export function selectProductThumbnailUrl(
+  media: Array<{ type: string; url: string }>
+) {
+  for (const item of media) {
+    if (!item.type.toLowerCase().includes("image")) {
+      continue;
+    }
+
+    try {
+      const parsed = new URL(item.url);
+      if (parsed.protocol === "https:") {
+        return parsed.toString();
+      }
+    } catch {
+      // Ignore malformed Product Hunt media URLs.
+    }
+  }
+
+  return null;
 }
 
 function deriveSlug(url: string, name: string, productId: string) {
