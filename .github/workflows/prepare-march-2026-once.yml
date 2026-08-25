@@ -1,0 +1,38 @@
+name: Prepare and sample March 2026 once
+
+on:
+  push:
+    branches:
+      - rebuild/march-2026-backfill
+    paths:
+      - .github/workflows/prepare-march-2026-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-and-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Convert March legacy screenshots to WebP
+        run: npx tsx scripts/convert-legacy-screenshots.ts --from 2026-03-01 --to 2026-03-31
+      - name: Rehydrate missing March product sources
+        run: npx tsx scripts/rehydrate-product-sources.ts --from 2026-03-01 --to 2026-03-31
+      - name: Capture five-date sample
+        run: |
+          set -euo pipefail
+          for slug in claude-import-memory claude-marketplace dynamiclake-2 bench-for-claude-code jupid; do
+            npm run screenshot -- --slug "$slug" --prefer-media
+          done
