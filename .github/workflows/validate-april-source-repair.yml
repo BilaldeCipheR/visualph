@@ -6,6 +6,10 @@ on:
       - rebuild/april-product-source-repair
     paths:
       - .github/workflows/validate-april-source-repair.yml
+      - lib/product-hunt/fetch-products.ts
+      - scripts/rehydrate-product-sources.ts
+      - tests/product-hunt-media.test.ts
+      - supabase/migrations/20260825090000_persist_product_hunt_thumbnail.sql
 
 permissions:
   contents: read
