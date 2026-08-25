@@ -1,0 +1,42 @@
+name: Capture remaining April screenshots once
+
+on:
+  push:
+    branches:
+      - rebuild/april-product-source-repair
+    paths:
+      - .github/workflows/capture-april-remaining-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Capture remaining April screenshots
+        run: |
+          set -uo pipefail
+          failed_dates=0
+          for day in $(seq -w 1 30); do
+            date="2026-04-$day"
+            echo "::group::Capturing $date (maximum 50 products)"
+            if ! npm run screenshot -- --date "$date" --prefer-media --limit 50; then
+              echo "::warning::Unresolved screenshots remain for $date"
+              failed_dates=$((failed_dates + 1))
+            fi
+            echo "::endgroup::"
+          done
+          echo "Dates with unresolved capture attempts: $failed_dates"
