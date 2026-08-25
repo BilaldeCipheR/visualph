@@ -1,4 +1,4 @@
-name: Repair undersized March 2026 screenshots once
+name: Repair final March 2026 screenshots once
 
 on:
   push:
@@ -11,14 +11,20 @@ permissions:
   contents: read
 
 jobs:
-  repair-known-media:
+  repair-final-five:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
+      NEXT_TELEMETRY_DISABLED: "1"
       PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+      APP_URL: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -26,9 +32,28 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Replace captures with stored Product Hunt media
+      - run: npm run build
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS "$APP_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/visualph-start.log
+          exit 1
+      - name: Rehydrate affected dates
         run: |
           set -euo pipefail
-          for slug in codex-security fastergh gpt-5-4-5 volumeglass; do
+          for launch_date in 2026-03-18 2026-03-19 2026-03-21 2026-03-24 2026-03-26; do
+            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products"               -H "Authorization: Bearer $SYNC_SECRET"               -H "Content-Type: application/json"               --data "{\"date\":\"$launch_date\"}"
+            sleep 3
+          done
+      - name: Recapture final five
+        run: |
+          set -euo pipefail
+          for slug in gpt-5-4-mini-and-nano doodles-ai contral library-in-chatgpt inspekt; do
             npm run screenshot -- --slug "$slug" --prefer-media
           done
+      - name: Verify application health
+        run: curl --fail-with-body -sS "$APP_URL/api/health"
