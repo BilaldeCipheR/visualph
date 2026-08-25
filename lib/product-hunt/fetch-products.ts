@@ -1,4 +1,5 @@
 ﻿import { env, requireEnv } from "@/lib/env";
+import { selectProductThumbnailUrl } from "@/lib/screenshot-fallback";
 
 const PRODUCT_HUNT_API_URL = "https://api.producthunt.com/v2/api/graphql";
 const DEFAULT_PAGE_SIZE = 20;
@@ -269,7 +270,7 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
     tagline: product.tagline,
     website_url: product.website,
     product_hunt_url: product.url,
-    thumbnail_url: selectProductThumbnailUrl(product.media),
+    thumbnail_url: selectProductThumbnailUrl({ media: product.media }),
     launch_date: date,
     launched_at: product.featuredAt ?? launchTimestamp,
     featured_at: product.featuredAt ?? launchTimestamp,
@@ -290,27 +291,6 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
       topics: product.topics
     }
   }));
-}
-
-export function selectProductThumbnailUrl(
-  media: Array<{ type: string; url: string }>
-) {
-  for (const item of media) {
-    if (!item.type.toLowerCase().includes("image")) {
-      continue;
-    }
-
-    try {
-      const parsed = new URL(item.url);
-      if (parsed.protocol === "https:") {
-        return parsed.toString();
-      }
-    } catch {
-      // Ignore malformed Product Hunt media URLs.
-    }
-  }
-
-  return null;
 }
 
 function deriveSlug(url: string, name: string, productId: string) {
