@@ -12,7 +12,7 @@ type ExistingProduct = {
 };
 
 async function main() {
-  const { from, to } = parseArgs(process.argv.slice(2));
+  const { from, to, maxScreenshotBytes } = parseArgs(process.argv.slice(2));
   const supabase = createClient(
     requireEnv("nextPublicSupabaseUrl"),
     requireEnv("supabaseServiceRoleKey"),
@@ -28,14 +28,19 @@ async function main() {
       buildProductRows(products, date).map((row) => [row.product_hunt_id, row])
     );
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("products")
       .select("id,product_hunt_id")
-      .eq("launch_date", date)
-      .is("screenshot_path", null);
+      .eq("launch_date", date);
+
+    query = maxScreenshotBytes === null
+      ? query.is("screenshot_path", null)
+      : query.or(`screenshot_path.is.null,screenshot_bytes.lt.${maxScreenshotBytes}`);
+
+    const { data, error } = await query;
 
     if (error) {
-      throw new Error(`Failed to load unresolved products for ${date}: ${error.message}`);
+      throw new Error(`Failed to load source-repair products for ${date}: ${error.message}`);
     }
 
     for (const product of (data ?? []) as ExistingProduct[]) {
@@ -64,13 +69,20 @@ async function main() {
       rehydrated += 1;
     }
 
-    console.log(`[rehydrate] ${date}: ${data?.length ?? 0} unresolved rows checked`);
+    console.log(`[rehydrate] ${date}: ${data?.length ?? 0} source-repair rows checked`);
   }
 
-  console.log(JSON.stringify({ ok: unmatched.length === 0, from, to, rehydrated, unmatched }, null, 2));
+  console.log(JSON.stringify({
+    ok: unmatched.length === 0,
+    from,
+    to,
+    maxScreenshotBytes,
+    rehydrated,
+    unmatched
+  }, null, 2));
 
   if (unmatched.length > 0) {
-    throw new Error(`${unmatched.length} unresolved products were not returned by Product Hunt.`);
+    throw new Error(`${unmatched.length} source-repair products were not returned by Product Hunt.`);
   }
 }
 
@@ -79,22 +91,33 @@ function parseArgs(argv: string[]) {
   for (let index = 0; index < argv.length; index += 2) {
     const flag = argv[index];
     const value = argv[index + 1];
-    if (!flag || !value || !["--from", "--to"].includes(flag)) {
-      throw new Error("Usage: tsx scripts/rehydrate-product-sources.ts --from YYYY-MM-DD --to YYYY-MM-DD");
+    if (!flag || !value || !["--from", "--to", "--max-screenshot-bytes"].includes(flag)) {
+      throw new Error(
+        "Usage: tsx scripts/rehydrate-product-sources.ts --from YYYY-MM-DD --to YYYY-MM-DD [--max-screenshot-bytes N]"
+      );
     }
     values.set(flag, value);
   }
 
   const from = values.get("--from");
   const to = values.get("--to");
-  const valid = (value: string | undefined) =>
+  const maxScreenshotBytesValue = values.get("--max-screenshot-bytes");
+  const validDate = (value: string | undefined) =>
     Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 
-  if (!valid(from) || !valid(to) || from! > to!) {
+  if (!validDate(from) || !validDate(to) || from! > to!) {
     throw new Error("A valid --from and --to date range is required.");
   }
 
-  return { from: from!, to: to! };
+  const maxScreenshotBytes = maxScreenshotBytesValue === undefined
+    ? null
+    : Number.parseInt(maxScreenshotBytesValue, 10);
+
+  if (maxScreenshotBytes !== null && (!Number.isSafeInteger(maxScreenshotBytes) || maxScreenshotBytes <= 0)) {
+    throw new Error("--max-screenshot-bytes must be a positive integer.");
+  }
+
+  return { from: from!, to: to!, maxScreenshotBytes };
 }
 
 function enumerateDates(from: string, to: string) {
