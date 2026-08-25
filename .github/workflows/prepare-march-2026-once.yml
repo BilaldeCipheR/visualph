@@ -11,9 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  repair-undersized:
+  repair-known-media:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     env:
       PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -26,22 +26,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Rehydrate only affected March dates
+      - name: Replace captures with stored Product Hunt media
         run: |
           set -euo pipefail
-          for date in 2026-03-06 2026-03-07 2026-03-12 2026-03-18 2026-03-19 2026-03-21 2026-03-24 2026-03-26 2026-03-27 2026-03-30; do
-            npx tsx scripts/rehydrate-product-sources.ts --from "$date" --to "$date" --max-screenshot-bytes 20000
-            sleep 3
+          for slug in codex-security fastergh gpt-5-4-5 volumeglass; do
+            npm run screenshot -- --slug "$slug" --prefer-media
           done
-      - name: Replace flagged website captures
-        run: |
-          set -uo pipefail
-          failed=0
-          for slug in gpt-5-4-5 codex-security gpt-5-4-mini-and-nano contral universal-cli-by-composio volumeglass doodles-ai fastergh inspekt library-in-chatgpt gb1-the-ai-from-the-uk halo-vision-headphones cursor-glass-2 whisker superturtle luzo mobilescreen; do
-            if ! npm run screenshot -- --slug "$slug" --prefer-media; then
-              echo "::warning::Capture failed for $slug; existing screenshot was preserved"
-              failed=$((failed + 1))
-            fi
-          done
-          echo "Failed replacements: $failed"
-          test "$failed" -eq 0
