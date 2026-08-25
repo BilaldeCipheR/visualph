@@ -1,0 +1,61 @@
+name: Prepare and sample January 2026 once
+
+on:
+  push:
+    branches:
+      - rebuild/january-2026-backfill
+    paths:
+      - .github/workflows/prepare-january-2026-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-and-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+      APP_URL: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS "$APP_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/visualph-start.log
+          exit 1
+      - name: Rehydrate every January date
+        run: |
+          set -euo pipefail
+          for day in $(seq -w 1 31); do
+            launch_date="2026-01-$day"
+            echo "Rehydrating $launch_date"
+            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products"               -H "Authorization: Bearer $SYNC_SECRET"               -H "Content-Type: application/json"               --data "{\"date\":\"$launch_date\"}"
+            sleep 1
+          done
+      - name: Capture five January samples
+        run: |
+          set -euo pipefail
+          for launch_date in 2026-01-01 2026-01-08 2026-01-18 2026-01-24 2026-01-31; do
+            npm run screenshot -- --all --date "$launch_date" --limit 1 --prefer-media
+          done
+      - name: Verify application health
+        run: curl --fail-with-body -sS "$APP_URL/api/health"
