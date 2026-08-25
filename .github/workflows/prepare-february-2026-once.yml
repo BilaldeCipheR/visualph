@@ -1,4 +1,4 @@
-name: Capture remaining February 2026 screenshots once
+name: Repair final February screenshot once
 
 on:
   push:
@@ -11,28 +11,10 @@ permissions:
   contents: read
 
 jobs:
-  capture:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: feb-01-07
-            from: 2026-02-01
-            to: 2026-02-07
-          - name: feb-08-14
-            from: 2026-02-08
-            to: 2026-02-14
-          - name: feb-15-21
-            from: 2026-02-15
-            to: 2026-02-21
-          - name: feb-22-28
-            from: 2026-02-22
-            to: 2026-02-28
-    name: ${{ matrix.name }}
+  repair:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     env:
-      NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -43,15 +25,5 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Capture bounded date range
-        env:
-          RANGE_FROM: ${{ matrix.from }}
-          RANGE_TO: ${{ matrix.to }}
-        run: |
-          set -euo pipefail
-          current="$RANGE_FROM"
-          while [[ "$current" < "$RANGE_TO" || "$current" == "$RANGE_TO" ]]; do
-            echo "Capturing $current"
-            npm run screenshot -- --all --date "$current" --limit 50 --prefer-media
-            current=$(date -u -d "$current + 1 day" +%F)
-          done
+      - name: Replace Musikey with Product Hunt media
+        run: npm run screenshot -- --slug musikey --prefer-media
