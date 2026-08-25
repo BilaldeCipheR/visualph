@@ -1,4 +1,5 @@
 ﻿import { env, requireEnv } from "@/lib/env";
+import { selectProductThumbnailUrl } from "@/lib/screenshot-fallback";
 
 const PRODUCT_HUNT_API_URL = "https://api.producthunt.com/v2/api/graphql";
 const DEFAULT_PAGE_SIZE = 20;
@@ -122,6 +123,7 @@ export type ProductUpsertRow = {
   tagline: string;
   website_url: string;
   product_hunt_url: string;
+  thumbnail_url: string | null;
   launch_date: string;
   launched_at: string;
   featured_at: string;
@@ -268,6 +270,7 @@ export function buildProductRows(products: ProductHuntProduct[], date: string) {
     tagline: product.tagline,
     website_url: product.website,
     product_hunt_url: product.url,
+    thumbnail_url: selectProductThumbnailUrl({ media: product.media }),
     launch_date: date,
     launched_at: product.featuredAt ?? launchTimestamp,
     featured_at: product.featuredAt ?? launchTimestamp,
