@@ -1,0 +1,61 @@
+name: Cleanup orphan screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Delete the reviewed orphan set"
+        required: true
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
+      expected_orphan_count:
+        description: "Reviewed orphan count required for apply"
+        required: true
+        default: "3324"
+      expected_orphan_hash:
+        description: "SHA-256 of sorted orphan paths required for apply"
+        required: true
+        default: "9348f10cf5a8c051ebf267e050e4bc4f1641da7ab16a7dfc36f765b4a720639c"
+
+concurrency:
+  group: visualph-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      EXPECTED_ORPHAN_COUNT: ${{ inputs.expected_orphan_count }}
+      EXPECTED_ORPHAN_HASH: ${{ inputs.expected_orphan_hash }}
+      ORPHAN_DELETE_BATCH_SIZE: "250"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Review or delete exact orphan set
+        shell: bash
+        run: |
+          if [[ "${{ inputs.apply }}" == "true" ]]; then
+            npm run screenshots:cleanup -- --apply
+          else
+            npm run screenshots:cleanup
+          fi
