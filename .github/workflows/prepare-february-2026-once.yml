@@ -1,0 +1,63 @@
+name: Prepare and sample February 2026 once
+
+on:
+  push:
+    branches:
+      - rebuild/february-2026-backfill
+    paths:
+      - .github/workflows/prepare-february-2026-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  prepare-and-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
+      APP_URL: http://127.0.0.1:3000
+      BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Convert legacy February captures
+        run: npm run screenshots:convert -- --from 2026-02-01 --to 2026-02-28
+      - run: npm run build
+      - name: Start app
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS "$APP_URL" >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/visualph-start.log
+          exit 1
+      - name: Rehydrate February Product Hunt fields
+        run: |
+          set -euo pipefail
+          for day in $(seq -w 1 28); do
+            launch_date="2026-02-$day"
+            echo "Rehydrating $launch_date"
+            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products"               -H "Authorization: Bearer $SYNC_SECRET"               -H "Content-Type: application/json"               --data "{\"date\":\"$launch_date\"}"
+            sleep 1
+          done
+      - name: Capture five February samples
+        run: |
+          set -euo pipefail
+          for slug in dottie inspirenote-2 seedance-2-0-0a9555d4-45b3-413a-90c2-7cc794f71516 rork-max claude-in-excel; do
+            npm run screenshot -- --slug "$slug" --prefer-media
+          done
+      - name: Verify application health
+        run: curl --fail-with-body -sS "$APP_URL/api/health"
