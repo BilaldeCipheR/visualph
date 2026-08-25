@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { requireEnv } from "../lib/env";
 
 const BUCKET = process.env.SCREENSHOT_BUCKET ?? "screenshots";
-const ROOT = process.env.SCREENSHOT_PATH_PREFIX ?? "products";
+const REVIEWED_PATHS_FILE =
+  process.env.ORPHAN_PATHS_FILE ?? "ops/orphan-paths-20260825.txt";
 const PAGE_SIZE = 1_000;
 const DELETE_BATCH_SIZE = Number(process.env.ORPHAN_DELETE_BATCH_SIZE ?? "250");
 
@@ -23,58 +25,61 @@ async function main() {
     throw new Error("ORPHAN_DELETE_BATCH_SIZE must be an integer between 1 and 1000");
   }
 
+  const reviewedPaths = (await readFile(REVIEWED_PATHS_FILE, "utf8"))
+    .split(/\r?\n/)
+    .map((path) => path.trim())
+    .filter(Boolean)
+    .sort();
+
+  if (new Set(reviewedPaths).size !== reviewedPaths.length) {
+    throw new Error("Reviewed orphan manifest contains duplicate paths");
+  }
+
+  const reviewedHash = hashPaths(reviewedPaths);
   const referencedPaths = await loadReferencedPaths(supabase);
-  const storedPaths = await listStoredPaths(supabase, ROOT);
-  const orphans = storedPaths.filter((path) => !referencedPaths.has(path)).sort();
-  const orphanHash = hashPaths(orphans);
+  const currentPathMatches = reviewedPaths.filter((path) => referencedPaths.has(path));
 
   console.log(JSON.stringify({
     apply,
     bucket: BUCKET,
-    root: ROOT,
+    reviewedPathCount: reviewedPaths.length,
+    reviewedHash,
     referencedCount: referencedPaths.size,
-    storedCount: storedPaths.length,
-    orphanCount: orphans.length,
-    orphanHash,
-    deleteBatchSize: DELETE_BATCH_SIZE,
-    orphans
+    currentPathMatchCount: currentPathMatches.length,
+    deleteBatchSize: DELETE_BATCH_SIZE
   }, null, 2));
 
-  if (!apply || orphans.length === 0) return;
+  if (currentPathMatches.length !== 0) {
+    throw new Error(`Safety check failed: ${currentPathMatches.length} reviewed paths are now referenced`);
+  }
+
+  if (!apply) return;
 
   if (expectedCount === undefined || !expectedHash) {
     throw new Error("Apply mode requires EXPECTED_ORPHAN_COUNT and EXPECTED_ORPHAN_HASH");
   }
-  if (orphans.length !== expectedCount) {
-    throw new Error(`Orphan count changed: expected ${expectedCount}, found ${orphans.length}`);
+  if (reviewedPaths.length !== expectedCount) {
+    throw new Error(`Manifest count changed: expected ${expectedCount}, found ${reviewedPaths.length}`);
   }
-  if (orphanHash !== expectedHash) {
-    throw new Error(`Orphan hash changed: expected ${expectedHash}, found ${orphanHash}`);
+  if (reviewedHash !== expectedHash) {
+    throw new Error(`Manifest hash changed: expected ${expectedHash}, found ${reviewedHash}`);
   }
 
-  for (let start = 0; start < orphans.length; start += DELETE_BATCH_SIZE) {
-    const batch = orphans.slice(start, start + DELETE_BATCH_SIZE);
+  let deletedCount = 0;
+  for (let start = 0; start < reviewedPaths.length; start += DELETE_BATCH_SIZE) {
+    const batch = reviewedPaths.slice(start, start + DELETE_BATCH_SIZE);
     const { data, error } = await supabase.storage.from(BUCKET).remove(batch);
-    if (error) throw new Error(`Failed to delete orphan batch starting at ${start}: ${error.message}`);
+    if (error) throw new Error(`Failed to delete batch starting at ${start}: ${error.message}`);
     if ((data ?? []).length !== batch.length) {
       throw new Error(`Deletion count mismatch at offset ${start}: expected ${batch.length}, got ${data?.length ?? 0}`);
     }
-    console.log(`Deleted batch ${Math.floor(start / DELETE_BATCH_SIZE) + 1}: ${batch.length} objects`);
-  }
-
-  const remainingStoredPaths = await listStoredPaths(supabase, ROOT);
-  const remainingOrphans = remainingStoredPaths
-    .filter((path) => !referencedPaths.has(path))
-    .sort();
-
-  if (remainingOrphans.length !== 0) {
-    throw new Error(`Verification failed: ${remainingOrphans.length} orphan objects remain`);
+    deletedCount += batch.length;
+    console.log(`Deleted batch ${Math.floor(start / DELETE_BATCH_SIZE) + 1}: ${batch.length} objects; total ${deletedCount}`);
   }
 
   console.log(JSON.stringify({
-    deletedCount: orphans.length,
-    deletedHash: orphanHash,
-    remainingOrphanCount: 0
+    deletedCount,
+    deletedHash: reviewedHash
   }));
 }
 
@@ -94,40 +99,6 @@ async function loadReferencedPaths(supabase: SupabaseClient): Promise<Set<string
     if (!data || data.length < PAGE_SIZE) break;
   }
   return referencedPaths;
-}
-
-async function listAll(
-  supabase: SupabaseClient,
-  path: string
-) {
-  const results: Array<{ id: string | null; name: string }> = [];
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await supabase.storage.from(BUCKET).list(path, {
-      limit: PAGE_SIZE,
-      offset,
-      sortBy: { column: "name", order: "asc" }
-    });
-    if (error) throw new Error(`Failed to list ${path}: ${error.message}`);
-    results.push(...(data ?? []));
-    if (!data || data.length < PAGE_SIZE) break;
-  }
-  return results;
-}
-
-async function listStoredPaths(supabase: SupabaseClient, path: string): Promise<string[]> {
-  const paths: string[] = [];
-
-  for (const item of await listAll(supabase, path)) {
-    const itemPath = `${path}/${item.name}`;
-
-    if (item.id === null) {
-      paths.push(...(await listStoredPaths(supabase, itemPath)));
-    } else {
-      paths.push(itemPath);
-    }
-  }
-
-  return paths;
 }
 
 function optionalIntegerEnv(name: string): number | undefined {
