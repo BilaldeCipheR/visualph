@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   selectProductMediaUrl,
+  selectProductThumbnailUrl,
   summarizeScreenshotBatch
 } from "../lib/screenshot-fallback.ts";
 
@@ -39,5 +40,25 @@ test("summarizeScreenshotBatch fails only when every processed capture fails", (
       { captureStatus: "fallback" }
     ]).status,
     "partial"
+  );
+});
+
+
+test("selectProductThumbnailUrl chooses only secure image media", () => {
+  assert.equal(
+    selectProductThumbnailUrl({
+      media: [
+        { type: "video", url: "https://cdn.example.com/demo.mp4" },
+        { type: "image", url: "http://cdn.example.com/insecure.png" },
+        { type: "image", url: "https://cdn.example.com/cover.png" }
+      ]
+    }),
+    "https://cdn.example.com/cover.png"
+  );
+  assert.equal(
+    selectProductThumbnailUrl({
+      media: [{ type: "video", url: "https://cdn.example.com/demo.mp4" }]
+    }),
+    null
   );
 });
