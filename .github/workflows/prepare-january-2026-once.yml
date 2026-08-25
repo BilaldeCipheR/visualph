@@ -1,4 +1,4 @@
-name: Prepare and sample January 2026 once
+name: Capture remaining January 2026 screenshots once
 
 on:
   push:
@@ -11,20 +11,31 @@ permissions:
   contents: read
 
 jobs:
-  prepare-and-sample:
+  capture:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: jan-01-08
+            from: 2026-01-01
+            to: 2026-01-08
+          - name: jan-09-16
+            from: 2026-01-09
+            to: 2026-01-16
+          - name: jan-17-24
+            from: 2026-01-17
+            to: 2026-01-24
+          - name: jan-25-31
+            from: 2026-01-25
+            to: 2026-01-31
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     env:
       NEXT_TELEMETRY_DISABLED: "1"
-      PH_API_TOKEN: ${{ secrets.PH_API_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      SYNC_SECRET: ${{ secrets.SYNC_SECRET }}
-      APP_URL: http://127.0.0.1:3000
-      BASE_URL: http://127.0.0.1:3000
-      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
-      SCREENSHOT_BASE_URL: http://127.0.0.1:3000
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -32,30 +43,15 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run build
-      - name: Start app
-        run: |
-          npm run start -- --hostname 127.0.0.1 --port 3000 > /tmp/visualph-start.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -fsS "$APP_URL" >/dev/null; then exit 0; fi
-            sleep 2
-          done
-          cat /tmp/visualph-start.log
-          exit 1
-      - name: Rehydrate every January date
+      - name: Capture bounded date range
+        env:
+          RANGE_FROM: ${{ matrix.from }}
+          RANGE_TO: ${{ matrix.to }}
         run: |
           set -euo pipefail
-          for day in $(seq -w 1 31); do
-            launch_date="2026-01-$day"
-            echo "Rehydrating $launch_date"
-            curl --fail-with-body -sS -X POST "$APP_URL/api/fetch-products"               -H "Authorization: Bearer $SYNC_SECRET"               -H "Content-Type: application/json"               --data "{\"date\":\"$launch_date\"}"
-            sleep 1
+          current="$RANGE_FROM"
+          while [[ "$current" < "$RANGE_TO" || "$current" == "$RANGE_TO" ]]; do
+            echo "Capturing $current"
+            npm run screenshot -- --all --date "$current" --limit 50 --prefer-media
+            current=$(date -u -d "$current + 1 day" +%F)
           done
-      - name: Capture five January samples
-        run: |
-          set -euo pipefail
-          for launch_date in 2026-01-01 2026-01-08 2026-01-18 2026-01-24 2026-01-31; do
-            npm run screenshot -- --all --date "$launch_date" --limit 1 --prefer-media
-          done
-      - name: Verify application health
-        run: curl --fail-with-body -sS "$APP_URL/api/health"
