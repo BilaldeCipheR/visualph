@@ -26,8 +26,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Rehydrate Product Hunt media for flagged captures
-        run: npx tsx scripts/rehydrate-product-sources.ts --from 2026-03-01 --to 2026-03-31 --max-screenshot-bytes 20000
+      - name: Rehydrate only affected March dates
+        run: |
+          set -euo pipefail
+          for date in 2026-03-06 2026-03-07 2026-03-12 2026-03-18 2026-03-19 2026-03-21 2026-03-24 2026-03-26 2026-03-27 2026-03-30; do
+            npx tsx scripts/rehydrate-product-sources.ts --from "$date" --to "$date" --max-screenshot-bytes 20000
+            sleep 3
+          done
       - name: Replace flagged website captures
         run: |
           set -uo pipefail
