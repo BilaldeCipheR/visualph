@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectProductThumbnailUrl } from "../lib/product-hunt/fetch-products";
+import { selectProductThumbnailUrl } from "../lib/product-hunt/fetch-products.ts";
 
 test("selectProductThumbnailUrl chooses the first valid HTTPS image", () => {
   assert.equal(
