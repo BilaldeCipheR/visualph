@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   ExternalLink,
-  Globe2,
   Layers3,
   Tag,
   TriangleAlert
@@ -305,7 +304,7 @@ function FilterSelect({
       <div className="flex items-center gap-2 rounded-md border border-black/10 bg-white/80 px-3 py-2 shadow-sm">
         <span className="text-black/55">{icon}</span>
         <select
-          className="w-full bg-transparent text-sm text-ink outline-none"
+          className="w-full cursor-pointer appearance-none bg-transparent text-sm text-ink outline-none"
           value={value}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -354,12 +353,8 @@ function LaunchCard({ launch }: { launch: Launch }) {
           </div>
         </CardHeader>
 
-        <CardContent className="mt-auto space-y-4 p-5 pt-0">
+        <CardContent className="mt-auto space-y-3 p-5 pt-0">
           <DataPill label="Upvotes" value={launch.votes.toLocaleString()} />
-          <div className="grid grid-cols-2 gap-2">
-            <MetaPill icon={<Globe2 className="h-3.5 w-3.5" />} text={launch.category} />
-            <MetaPill icon={<Layers3 className="h-3.5 w-3.5" />} text={launch.topic} />
-          </div>
           <div className="flex flex-wrap gap-2">
             <LinkButton href={launch.productHuntUrl} label="Product Hunt" />
             <LinkButton href={launch.websiteUrl} label="Website" variant="secondary" />
@@ -381,14 +376,6 @@ function DataPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetaPill({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white px-3 py-2 text-sm text-black/70">
-      <span className="text-black/45">{icon}</span>
-      <span className="truncate">{text}</span>
-    </div>
-  );
-}
 
 function LinkButton({
   href,
