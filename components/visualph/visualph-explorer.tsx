@@ -35,8 +35,6 @@ export type Launch = {
   screenshotHeight?: number | null;
 };
 
-type SortOrder = "votes" | "rank";
-
 type VisualPHExplorerProps = {
   availableCategories: string[];
   launches?: Launch[];
@@ -79,7 +77,6 @@ export function VisualPHExplorer({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
-  const [sort, setSort] = React.useState<SortOrder>("votes");
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const selectedCalendarDate = React.useMemo(
     () => toDateValue(selectedDate),
@@ -106,13 +103,10 @@ export function VisualPHExplorer({
         .some((value) => value.toLowerCase() === categoryFilter.toLowerCase());
     });
 
-    return [...matched].sort((left, right) => {
-      if (sort === "rank") {
-        return left.rank - right.rank || right.votes - left.votes;
-      }
-      return right.votes - left.votes || left.rank - right.rank;
-    });
-  }, [categoryFilter, launches, sort]);
+    return [...matched].sort(
+      (left, right) => right.votes - left.votes || left.rank - right.rank
+    );
+  }, [categoryFilter, launches]);
 
   function updateQuery(next: { category?: string; date?: string }) {
     const params = new URLSearchParams(searchParams.toString());
@@ -171,7 +165,7 @@ export function VisualPHExplorer({
 
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-2">
             <div className="flex flex-col gap-2">
               <span className="text-xs font-medium uppercase tracking-[0.16em] text-black/45">
                 Launch date
@@ -226,17 +220,6 @@ export function VisualPHExplorer({
               options={[
                 { value: "all", label: "All categories" },
                 ...availableCategories.map((category) => ({ value: category, label: category }))
-              ]}
-            />
-
-            <FilterSelect
-              icon={<Layers3 className="h-4 w-4" />}
-              label="Sort"
-              value={sort}
-              onChange={(value) => setSort(value as SortOrder)}
-              options={[
-                { value: "votes", label: "Most upvoted" },
-                { value: "rank", label: "Highest rank" }
               ]}
             />
 
