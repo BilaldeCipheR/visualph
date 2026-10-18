@@ -8,7 +8,6 @@ type PageProps = {
   }>;
 };
 
-export const preferredRegion = "sin1";
 
 function isValidDate(value: string | undefined) {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
