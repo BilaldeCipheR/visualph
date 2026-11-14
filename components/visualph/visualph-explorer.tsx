@@ -269,7 +269,7 @@ export function VisualPHExplorer({
                   <Calendar
                     mode="single"
                     showOutsideDays={false}
-                    fromMonth={new Date(2026, 0, 1)}
+                    startMonth={new Date(2026, 0, 1)}
                     selected={selectedCalendarDate || undefined}
                     month={calendarMonth}
                     onMonthChange={setCalendarMonth}
@@ -280,7 +280,6 @@ export function VisualPHExplorer({
                       }
                     }}
                     disabled={(date) => date > new Date()}
-                    initialFocus
                   />
                 </PopoverContent>
               </Popover>
