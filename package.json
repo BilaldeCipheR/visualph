@@ -9,8 +9,6 @@
     "lint": "tsc --noEmit",
     "screenshot": "tsx scripts/screenshot.ts",
     "screenshots:cleanup": "tsx scripts/cleanup-orphan-screenshots.ts",
-
-
     "test": "node --test tests/**/*.test.ts"
   },
   "dependencies": {
@@ -20,7 +18,7 @@
     "@vercel/speed-insights": "^2.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.4.0",
     "lucide-react": "^0.539.0",
     "next": "16.4.6",
     "puppeteer": "^25.17.0",
