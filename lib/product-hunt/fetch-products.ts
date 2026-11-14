@@ -344,7 +344,7 @@ async function resolveRedirectUrl(
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "User-Agent":
-          "Mozilla/5.0 (compatible; VisualPH/1.0; +https://github.com/visualph)"
+          "Mozilla/5.0 (compatible; VisualPH/1.0; +https://github.com/BilaldeCipheR/visualph)"
       }
     });
 

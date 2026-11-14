@@ -1,9 +1,9 @@
-﻿import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+﻿import { createSupabasePublicClient } from "@/lib/supabase/public";
 import type { ProductFilterState, ProductRecord } from "@/lib/types";
 import { unstable_cache } from "next/cache";
 
 const PRODUCT_LIST_COLUMNS =
-  "id,name,tagline,website_url,product_hunt_url,votes_count,daily_rank,launch_date,screenshot_url,screenshot_width,screenshot_height,topic_names" as const;
+  "id,name,tagline,description,website_url,product_hunt_url,votes_count,daily_rank,launch_date,screenshot_url,screenshot_width,screenshot_height,topic_names" as const;
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -18,6 +18,7 @@ function normalizeProducts(rows: Record<string, unknown>[] | null): ProductRecor
     id: String(row.id),
     name: String(row.name ?? "Untitled product"),
     tagline: String(row.tagline ?? ""),
+    description: row.description ? String(row.description) : undefined,
     websiteUrl: String(row.website_url ?? ""),
     productHuntUrl: String(row.product_hunt_url ?? ""),
     votesCount: Number(row.votes_count ?? 0),
@@ -36,7 +37,7 @@ function normalizeProducts(rows: Record<string, unknown>[] | null): ProductRecor
 
 export async function getLatestLaunchDate(): Promise<string> {
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabasePublicClient();
     const { data, error } = await supabase
       .from("products")
       .select("launch_date")
@@ -55,7 +56,7 @@ export async function getLatestLaunchDate(): Promise<string> {
 }
 
 async function queryProductsByDate(date: string): Promise<ProductRecord[]> {
-  const supabase = createSupabaseAdminClient();
+  const supabase = createSupabasePublicClient();
   const { data, error } = await supabase
     .from("products")
     .select(PRODUCT_LIST_COLUMNS)
@@ -76,6 +77,34 @@ const getCachedProductsByDate = unstable_cache(
   { revalidate: 60 }
 );
 
+async function querySearchIndex(limit: number): Promise<ProductRecord[]> {
+  const supabase = createSupabasePublicClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_LIST_COLUMNS)
+    .order("launch_date", { ascending: false })
+    .order("votes_count", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeProducts(data as Record<string, unknown>[] | null);
+}
+
+const getCachedSearchIndex = unstable_cache(querySearchIndex, ["visualph-search-index-v1"], {
+  revalidate: 60
+});
+
+export async function getSearchIndex(limit = 2_000): Promise<ProductRecord[]> {
+  try {
+    return await getCachedSearchIndex(limit);
+  } catch {
+    return [];
+  }
+}
+
 export async function getProducts({ date }: ProductFilterState): Promise<ProductRecord[]> {
   try {
     return await getCachedProductsByDate(date);
@@ -84,66 +113,4 @@ export async function getProducts({ date }: ProductFilterState): Promise<Product
   }
 }
 
-export async function getAvailableLaunchDates(): Promise<string[]> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const dates = new Set<string>();
-    const pageSize = 1_000;
 
-    for (let start = 0; ; start += pageSize) {
-      const { data, error } = await supabase
-        .from("products")
-        .select("launch_date")
-        .order("launch_date", { ascending: false })
-        .range(start, start + pageSize - 1);
-
-      if (error) {
-        throw error;
-      }
-
-      for (const row of data ?? []) {
-        if (row.launch_date) {
-          dates.add(String(row.launch_date));
-        }
-      }
-
-      if (!data || data.length < pageSize) {
-        break;
-      }
-    }
-
-    return [...dates].sort((left, right) => right.localeCompare(left));
-  } catch {
-    return [];
-  }
-}
-
-export async function getAvailableCategories(date: string): Promise<string[]> {
-  try {
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("topic_names")
-      .eq("launch_date", date);
-
-    if (error || !data) {
-      return [];
-    }
-
-    const names = new Set<string>();
-
-    for (const row of data) {
-      const topics = Array.isArray(row.topic_names) ? (row.topic_names as unknown[]) : [];
-
-      for (const topic of topics) {
-        if (typeof topic === "string" && topic.trim()) {
-          names.add(topic);
-        }
-      }
-    }
-
-    return [...names].sort((left, right) => left.localeCompare(right));
-  } catch {
-    return [];
-  }
-}

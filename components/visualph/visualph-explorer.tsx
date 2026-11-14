@@ -17,12 +17,19 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+import { GitHubIcon } from "./github-icon";
+import { GlobalSearch } from "./global-search";
 import { LaunchScreenshot } from "./launch-screenshot";
+import { matchesQuery } from "@/lib/search";
+
+const GITHUB_URL =
+  process.env.NEXT_PUBLIC_GITHUB_URL ?? "https://github.com/BilaldeCipheR/visualph";
 
 export type Launch = {
   id: string;
   name: string;
   tagline: string;
+  description?: string;
   votes: number;
   rank: number;
   category: string;
@@ -38,6 +45,7 @@ export type Launch = {
 type VisualPHExplorerProps = {
   availableCategories: string[];
   launches?: Launch[];
+  searchIndex?: Launch[];
   selectedCategory: string;
   selectedDate: string;
 };
@@ -70,6 +78,7 @@ function toDateValue(value: string) {
 export function VisualPHExplorer({
   availableCategories,
   launches = [],
+  searchIndex = [],
   selectedCategory,
   selectedDate
 }: VisualPHExplorerProps) {
@@ -77,6 +86,7 @@ export function VisualPHExplorer({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [categoryFilter, setCategoryFilter] = React.useState(selectedCategory);
+  const [searchQuery, setSearchQuery] = React.useState(() => searchParams.get("q") ?? "");
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const selectedCalendarDate = React.useMemo(
     () => toDateValue(selectedDate),
@@ -92,8 +102,17 @@ export function VisualPHExplorer({
     }
   }, [selectedCalendarDate]);
 
+  React.useEffect(() => {
+    setCategoryFilter(selectedCategory);
+    setSearchQuery(searchParams.get("q") ?? "");
+  }, [searchParams, selectedCategory]);
+
   const filteredLaunches = React.useMemo(() => {
     const matched = launches.filter((launch) => {
+      if (!matchesQuery(launch, searchQuery)) {
+        return false;
+      }
+
       if (categoryFilter === "all") {
         return true;
       }
@@ -106,10 +125,17 @@ export function VisualPHExplorer({
     return [...matched].sort(
       (left, right) => right.votes - left.votes || left.rank - right.rank
     );
-  }, [categoryFilter, launches]);
+  }, [categoryFilter, launches, searchQuery]);
 
-  function updateQuery(next: { category?: string; date?: string }) {
+  function updateQuery(next: { category?: string; date?: string; q?: string }) {
     const params = new URLSearchParams(searchParams.toString());
+    const query = next.q ?? searchQuery;
+
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
 
     if (next.date) {
       params.set("date", next.date);
@@ -123,8 +149,8 @@ export function VisualPHExplorer({
 
     params.delete("sort");
 
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    const nextQuery = params.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }
 
   function handleDateChange(value: string) {
@@ -132,6 +158,11 @@ export function VisualPHExplorer({
       category: categoryFilter,
       date: value
     });
+  }
+
+  function handleSearchSubmit(value: string) {
+    setSearchQuery(value);
+    updateQuery({ category: categoryFilter, date: selectedDate, q: value });
   }
 
   function handleCategoryChange(value: string) {
@@ -164,12 +195,49 @@ export function VisualPHExplorer({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Stat label="Launches" value={launches.length.toString()} />
-              <Stat label="Categories" value={availableCategories.length.toString()} />
-              <Stat label="Date" value={selectedDate} />
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="gap-2 border-black/10 bg-white/80 text-ink shadow-sm hover:bg-white"
+              >
+                <a
+                  href={GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View the source on GitHub"
+                >
+                  <GitHubIcon className="h-4 w-4" />
+                  GitHub
+                </a>
+              </Button>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Stat label="Launches" value={launches.length.toString()} />
+                <Stat label="Categories" value={availableCategories.length.toString()} />
+                <Stat label="Date" value={selectedDate} />
+              </div>
             </div>
           </div>
+
+          <GlobalSearch
+            launches={launches}
+            index={searchIndex}
+            selectedDate={selectedDate}
+            onOpenLaunch={(launch) => {
+              setSearchQuery(launch.name);
+              setCategoryFilter("all");
+              updateQuery({
+                category: "all",
+                date: launch.launchedAt.slice(0, 10),
+                q: launch.name
+              });
+            }}
+            categories={availableCategories}
+            query={searchQuery}
+            onSubmit={handleSearchSubmit}
+            onPickCategory={handleCategoryChange}
+          />
 
           <div className="grid gap-3 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
@@ -244,13 +312,21 @@ export function VisualPHExplorer({
       <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {launches.length === 0 ? (
           <EmptyState
-            title="No launch data loaded"
-            description="The UI is wired to Supabase. Once the daily sync populates products, launches for the selected date appear here."
+            title="No launches for this day yet"
+            description={`Nothing has launched on ${formatLaunchDate(selectedDate)} so far. Pick another date from the calendar, or search every day from the bar above.`}
           />
         ) : filteredLaunches.length === 0 ? (
           <EmptyState
-            title="No launches match the current filters"
-            description="Try a different category or pick another launch date."
+            title={
+              searchQuery
+                ? `No launches match “${searchQuery}”`
+                : "No launches match the current filters"
+            }
+            description={
+              searchQuery
+                ? "Try a shorter word, clear the category, or pick another launch date."
+                : "Try a different category or pick another launch date."
+            }
           />
         ) : (
           <>
@@ -258,7 +334,21 @@ export function VisualPHExplorer({
               <div>
                 Showing <span className="font-semibold text-ink">{filteredLaunches.length}</span>{" "}
                 launch{filteredLaunches.length === 1 ? "" : "es"}
+                {searchQuery ? (
+                  <>
+                    {" "}matching <span className="font-semibold text-ink">“{searchQuery}”</span>
+                  </>
+                ) : null}
               </div>
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => handleSearchSubmit("")}
+                  className="text-sm font-medium text-black/60 underline-offset-4 hover:underline"
+                >
+                  Clear search
+                </button>
+              ) : null}
             </div>
             <div className="grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredLaunches.map((launch) => (

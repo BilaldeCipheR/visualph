@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabasePublicClient } from "@/lib/supabase/public";
 import {
   DEFAULT_MAX_SYNC_LAG_DAYS,
   differenceInUtcDays,
@@ -28,7 +28,7 @@ export async function GET() {
   const checkedAt = new Date().toISOString();
 
   try {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabasePublicClient();
     const { data, error } = await supabase
       .rpc("products_health_summary_v2", {
         p_refresh_after_days: DEFAULT_SCREENSHOT_REFRESH_AFTER_DAYS,
@@ -104,7 +104,7 @@ export async function GET() {
 }
 
 async function loadLatestScreenshotCoverage(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  supabase: ReturnType<typeof createSupabasePublicClient>,
   latestLaunchDate: string
 ) {
   const { data, error } = await supabase

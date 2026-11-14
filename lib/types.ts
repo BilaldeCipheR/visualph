@@ -2,6 +2,7 @@
   id: string;
   name: string;
   tagline: string;
+  description?: string;
   websiteUrl: string;
   productHuntUrl: string;
   votesCount: number;
