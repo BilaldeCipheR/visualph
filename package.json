@@ -38,7 +38,7 @@
     "supabase": "^2.110.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^5.9.2"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "nanoid": "3.3.18",
