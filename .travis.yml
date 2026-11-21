@@ -5,7 +5,7 @@ dist: noble
 node_js:
   - "24"
 
-if: branch = main OR type = pull_request
+if: branch = main OR type = pull_request OR type = cron OR type = api
 
 cache: npm
 
@@ -17,9 +17,7 @@ install:
   - npm ci
 
 script:
-  - npm test
-  - npm run lint
-  - npm run build
+  - bash scripts/travis-ci.sh
 
 notifications:
   email: false
