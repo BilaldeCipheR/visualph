@@ -8,3 +8,4 @@ dist
 *.log
 *.tsbuildinfo
 supabase/.temp
+.zed/
