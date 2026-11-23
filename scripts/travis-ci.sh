@@ -24,7 +24,7 @@ run_daily() {
   fi
 
   start_date="${start_date#start_date=}"
-  if [[ -z "$start_date" && "$TRAVIS_EVENT_TYPE" == "cron" ]]; then
+  if [[ -z "$start_date" && "${TRAVIS_EVENT_TYPE:-}" == "cron" ]]; then
     start_date="$(date -u -d yesterday +%F)"
   fi
   start_date="${start_date:-$(date -u +%F)}"
