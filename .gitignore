@@ -9,4 +9,3 @@ dist
 *.tsbuildinfo
 supabase/.temp
 .zed/
-.travis-ci.log
