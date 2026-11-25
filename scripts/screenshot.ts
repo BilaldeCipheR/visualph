@@ -1,6 +1,6 @@
 ﻿import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -122,11 +122,18 @@ async function main() {
   }
 
   const puppeteer = await loadPuppeteer();
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    userDataDir: mkdtempSync(join(tmpdir(), "visualph-chrome-"))
-  });
+  const userDataDir = mkdtempSync(join(tmpdir(), "visualph-chrome-"));
+  let browser: BrowserInstance;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      userDataDir
+    });
+  } catch (error) {
+    rmSync(userDataDir, { recursive: true, force: true });
+    throw error;
+  }
 
   const results: ProductRunResult[] = [];
 
@@ -152,7 +159,11 @@ async function main() {
       }
     }
   } finally {
-    await browser.close();
+    try {
+      await browser.close();
+    } finally {
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
   }
 
   const summary = summarizeScreenshotBatch(results);
