@@ -1,6 +1,7 @@
 ﻿import { timingSafeEqual } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { env, requireEnv } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,6 +10,7 @@ import {
   fetchAllDailyProducts,
   ProductHuntRequestError
 } from "@/lib/product-hunt/fetch-products";
+import { PRODUCTS_CACHE_TAG, SEARCH_INDEX_CACHE_TAG } from "@/lib/products";
 
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
@@ -76,6 +78,12 @@ async function handleRequest(request: NextRequest) {
     if (error) {
       throw new Error(`Supabase replace failed: ${error.message}`);
     }
+
+    // Invalidate the product and search-index caches so the next page request
+    // reflects the freshly synced data instead of a stale 60s-cached snapshot.
+    revalidateTag(PRODUCTS_CACHE_TAG, { expire: 0 });
+    revalidateTag(SEARCH_INDEX_CACHE_TAG, { expire: 0 });
+    revalidatePath("/");
 
     return NextResponse.json({
       ok: true,

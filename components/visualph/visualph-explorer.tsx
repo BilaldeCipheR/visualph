@@ -3,12 +3,12 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
-  CalendarDays,
-  ExternalLink,
-  Layers3,
-  Tag,
-  TriangleAlert
-} from "lucide-react";
+  CalendarIcon,
+  ArrowTopRightOnSquareIcon,
+  Square3Stack3DIcon,
+  TagIcon,
+  ExclamationTriangleIcon
+} from "@heroicons/react/24/solid";
 import { format } from "date-fns";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { GitHubIcon } from "./github-icon";
 import { GlobalSearch } from "./global-search";
 import { LaunchScreenshot } from "./launch-screenshot";
+import { SwipeDeck } from "./SwipeDeck";
 import { matchesQuery } from "@/lib/search";
 
 const GITHUB_URL =
@@ -175,13 +176,13 @@ export function VisualPHExplorer({
 
 
   return (
-    <main className="min-h-screen bg-[linear-gradient(180deg,#f6f1e8_0%,#f5efe6_100%)] text-ink">
+    <main className="min-h-screen text-ink">
       <section className="border-b border-black/10 bg-white/55 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/80 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-black/55">
-                <Layers3 className="h-3.5 w-3.5" />
+                <Square3Stack3DIcon className="h-3.5 w-3.5" />
                 Product Hunt launches
               </div>
               <div className="space-y-1">
@@ -212,10 +213,10 @@ export function VisualPHExplorer({
                   GitHub
                 </a>
               </Button>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <Stat label="Launches" value={launches.length.toString()} />
                 <Stat label="Categories" value={availableCategories.length.toString()} />
-                <Stat label="Date" value={selectedDate} />
+                <Stat label="Date" value={selectedDate.slice(5)} />
               </div>
             </div>
           </div>
@@ -261,7 +262,7 @@ export function VisualPHExplorer({
                       !selectedDate && "text-muted-foreground"
                     )}
                   >
-                    <CalendarDays className="mr-2 h-4 w-4 text-black/55" />
+                    <CalendarIcon className="mr-2 h-4 w-4 text-black/55" />
                     {selectedDate ? formatLaunchDate(selectedDate) : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
@@ -286,7 +287,7 @@ export function VisualPHExplorer({
             </div>
 
             <FilterSelect
-              icon={<Tag className="h-4 w-4" />}
+              icon={<TagIcon className="h-4 w-4" />}
               label="Category"
               value={categoryFilter}
               onChange={handleCategoryChange}
@@ -297,7 +298,7 @@ export function VisualPHExplorer({
             />
 
             <FilterSelect
-              icon={<Layers3 className="h-4 w-4" />}
+              icon={<Square3Stack3DIcon className="h-4 w-4" />}
               label="Sort"
               value="votes"
               onChange={() => {}}
@@ -329,7 +330,7 @@ export function VisualPHExplorer({
           />
         ) : (
           <>
-            <div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-black/10 bg-white/70 px-4 py-3 text-sm text-black/65">
+            <div className="mb-4 flex flex-col gap-2 rounded-md border border-black/10 bg-white/70 px-4 py-3 text-sm text-black/65 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div>
                 Showing <span className="font-semibold text-ink">{filteredLaunches.length}</span>{" "}
                 launch{filteredLaunches.length === 1 ? "" : "es"}
@@ -349,7 +350,12 @@ export function VisualPHExplorer({
                 </button>
               ) : null}
             </div>
-            <div className="grid items-start gap-5 md:grid-cols-2 lg:grid-cols-3">
+            <SwipeDeck label="Launches">
+              {filteredLaunches.map((launch) => (
+                <LaunchCard key={launch.id} launch={launch} />
+              ))}
+            </SwipeDeck>
+            <div className="hidden items-start gap-5 md:grid md:grid-cols-2 lg:grid-cols-3">
               {filteredLaunches.map((launch) => (
                 <LaunchCard key={launch.id} launch={launch} />
               ))}
@@ -363,11 +369,11 @@ export function VisualPHExplorer({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-black/10 bg-white/75 px-3 py-2 shadow-sm">
-      <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-black/45">
+    <div className="rounded-md border border-black/10 bg-white/75 px-2 py-2 shadow-sm sm:px-3">
+      <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-black/45 sm:text-[11px] sm:tracking-[0.16em]">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold text-ink">{value}</div>
+      <div className="mt-1 truncate text-sm font-semibold text-ink sm:text-lg">{value}</div>
     </div>
   );
 }
@@ -485,12 +491,12 @@ function LinkButton({
       className={cn(
         "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition",
         primary
-          ? "border-ink bg-ink text-white hover:opacity-90"
-          : "border-black/10 bg-white text-black/70 hover:bg-black/5"
+          ? "border-ink bg-ink text-primary-foreground hover:opacity-90"
+          : "border-black/10 bg-white text-ink hover:bg-black/5"
       )}
     >
       {label}
-      <ExternalLink className="h-3.5 w-3.5" />
+      <ArrowTopRightOnSquareIcon className="h-3.5 w-3.5" />
     </a>
   );
 }
@@ -500,7 +506,7 @@ function EmptyState({ title, description }: { title: string; description: string
     <Card className="border-dashed bg-white/75">
       <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
         <div className="rounded-full border border-black/10 bg-[#f8f3ea] p-3 text-black/55">
-          <TriangleAlert className="h-5 w-5" />
+          <ExclamationTriangleIcon className="h-5 w-5" />
         </div>
         <div className="max-w-md space-y-1">
           <h2 className="text-lg font-semibold">{title}</h2>

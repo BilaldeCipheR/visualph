@@ -3,14 +3,14 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import {
-  ArrowRight,
-  CalendarDays,
-  CornerDownLeft,
-  History,
-  Search,
-  Tag,
-  X
-} from "lucide-react";
+  ArrowRightIcon,
+  CalendarIcon,
+  ArrowDownLeftIcon,
+  ClockIcon,
+  MagnifyingGlassIcon,
+  TagIcon,
+  XMarkIcon
+} from "@heroicons/react/24/solid";
 
 import { matchTier, matchesQuery, queryWords } from "@/lib/search";
 import { cn } from "@/lib/utils";
@@ -290,7 +290,7 @@ export function GlobalSearch({
           className="flex min-w-0 flex-1 items-center gap-3 text-left outline-none"
           aria-haspopup="dialog"
         >
-          <Search className="h-4 w-4 text-black/55" />
+          <MagnifyingGlassIcon className="h-4 w-4 text-black/55" />
           <span className={cn("flex-1 truncate", query ? "text-ink" : "text-black/45")}>
             {query || "Search by name, or by what it does"}
           </span>
@@ -302,7 +302,7 @@ export function GlobalSearch({
             onClick={() => onSubmit("")}
             className="rounded p-1 text-black/45 hover:bg-black/5"
           >
-            <X className="h-3.5 w-3.5" />
+            <XMarkIcon className="h-3.5 w-3.5" />
           </button>
         ) : null}
         <kbd className="rounded border border-black/10 bg-[#f8f3ea] px-1.5 py-0.5 font-mono text-[11px] text-black/55">
@@ -324,7 +324,7 @@ export function GlobalSearch({
                 className="w-full max-w-xl overflow-hidden rounded-lg border border-black/10 bg-white shadow-2xl"
               >
                 <div className="flex items-center gap-3 border-b border-black/10 px-4 py-3">
-                  <Search className="h-4 w-4 text-black/55" />
+                  <MagnifyingGlassIcon className="h-4 w-4 text-black/55" />
                   <input
                     ref={inputRef}
                     value={draft}
@@ -373,9 +373,9 @@ export function GlobalSearch({
                         onHover={() => setActive(results.indexOf(result))}
                         onClick={() => choose(result)}
                       >
-                        <History className="h-4 w-4 text-black/45" />
+                        <ClockIcon className="h-4 w-4 text-black/45" />
                         <span className="flex-1 truncate text-ink">{result.query}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-black/35" />
+                        <ArrowRightIcon className="h-3.5 w-3.5 text-black/35" />
                       </ResultRow>
                     ) : null
                   )}
@@ -386,7 +386,7 @@ export function GlobalSearch({
                       onHover={() => setActive(results.indexOf(allResult))}
                       onClick={() => choose(allResult)}
                     >
-                      <Search className="h-4 w-4 text-black/55" />
+                      <MagnifyingGlassIcon className="h-4 w-4 text-black/55" />
                       <span className="flex-1 truncate">
                         Filter {formatDay(selectedDate)} by{" "}
                         <span className="font-semibold text-ink">“{allResult.query}”</span>
@@ -444,7 +444,7 @@ export function GlobalSearch({
                             ▲ {result.launch.votes.toLocaleString()}
                           </span>
                           <span className="inline-flex shrink-0 items-center gap-1 rounded border border-black/10 bg-[#faf7f1] px-1.5 py-0.5 text-[11px] text-black/55">
-                            <CalendarDays className="h-3 w-3" />
+                            <CalendarIcon className="h-3 w-3" />
                             {formatDay(result.launch.launchedAt, true)}
                           </span>
                         </ResultRow>
@@ -461,10 +461,10 @@ export function GlobalSearch({
                         onHover={() => setActive(results.indexOf(result))}
                         onClick={() => choose(result)}
                       >
-                        <Tag className="h-4 w-4 text-black/55" />
+                        <TagIcon className="h-4 w-4 text-black/55" />
                         <span className="flex-1 truncate text-ink">{result.category}</span>
                         <span className="text-xs text-black/45">Filter</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-black/45" />
+                        <ArrowRightIcon className="h-3.5 w-3.5 text-black/45" />
                       </ResultRow>
                     ) : null
                   )}
@@ -481,7 +481,7 @@ export function GlobalSearch({
                     <kbd className="font-mono">↑↓</kbd> to move
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <CornerDownLeft className="h-3 w-3" /> opens that day
+                    <ArrowDownLeftIcon className="h-3 w-3" /> opens that day
                   </span>
                   <span className="ml-auto">
                     Searching {pool.length.toLocaleString()} launches across {dayCount} days

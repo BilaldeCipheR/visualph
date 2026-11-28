@@ -5,6 +5,9 @@ import { unstable_cache } from "next/cache";
 const PRODUCT_LIST_COLUMNS =
   "id,name,tagline,description,website_url,product_hunt_url,votes_count,daily_rank,launch_date,screenshot_url,screenshot_width,screenshot_height,topic_names" as const;
 
+export const PRODUCTS_CACHE_TAG = "visualph-products";
+export const SEARCH_INDEX_CACHE_TAG = "visualph-search-index";
+
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -74,7 +77,7 @@ async function queryProductsByDate(date: string): Promise<ProductRecord[]> {
 const getCachedProductsByDate = unstable_cache(
   queryProductsByDate,
   ["visualph-products-by-date-v2"],
-  { revalidate: 60 }
+  { revalidate: 60, tags: [PRODUCTS_CACHE_TAG] }
 );
 
 async function querySearchIndex(limit: number): Promise<ProductRecord[]> {
@@ -94,7 +97,8 @@ async function querySearchIndex(limit: number): Promise<ProductRecord[]> {
 }
 
 const getCachedSearchIndex = unstable_cache(querySearchIndex, ["visualph-search-index-v1"], {
-  revalidate: 60
+  revalidate: 60,
+  tags: [SEARCH_INDEX_CACHE_TAG]
 });
 
 export async function getSearchIndex(limit = 2_000): Promise<ProductRecord[]> {
